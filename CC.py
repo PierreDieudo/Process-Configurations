@@ -324,8 +324,8 @@ def mass_balance_CC(vars):
         #bounds=(0,1),
         method='trf',
         xtol=1e-8,
-        ftol=1e-10,
-        gtol=1e-10
+        ftol=1e-8,
+        gtol=1e-8
     )
 
     shooting_error, Solved_membrane_profile = module_mass_balance(overall_sol.x , user_vars) #Running the membrane mass balance with the solution of the shooting method

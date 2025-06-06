@@ -18,7 +18,7 @@ def show_image():
     img = Image.open('Kamran_Config_Test.png') #image of the configuration - only considfering membranes 1,2 and 3 so far
     img.show()
 
-#show_image() #show the image of the configuration - comment if unecessary
+#show_image() #shows the image of the configuration - uncomment if unecessary
 
 #-----------------------------------------#
 #--------- User input parameters ---------#
@@ -134,7 +134,7 @@ def Run(Membrane):
 ### Run iterations for process recycling loops - Specific to this configuration!
 
 max_iter = 300
-tolerance = 1-5
+tolerance = 1e-5
 J = len(Membrane_1["Permeance"]) #number of components
 Placeholder_2={#Intermediade data storage for the recycling loop entering the second membrane used to check for convergence
     "Feed_Composition": [0] * J,
