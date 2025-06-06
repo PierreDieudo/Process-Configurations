@@ -34,7 +34,7 @@ def mass_balance_CC(vars):
 
     #Number of elements N
     J = len(Membrane["Feed_Composition"])
-    min_elements = [1]  # minimum of 2 elements
+    min_elements = [2]  # minimum of 2 elements
     for i in range(J):  # (Coker and Freeman, 1998)
         N_i = (Membrane["Feed_Flow"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
         min_elements.append(N_i)
@@ -181,7 +181,7 @@ def mass_balance_CC(vars):
             element_output = sol_element.x
         
             if sol_element.cost > 1e-5:
-                print(f'Large mass balance closure error at element {k}; error: {sol_element.cost:.3e}; with residuals {sol_element.fun}')
+                print(f'{Membrane["Name"]}: Large mass balance closure error at element {k}')#"error: {sol_element.cost:.3e}; with residuals {sol_element.fun}')
         
             # Calculate the pressure drop for the permeate side
             y_k = element_output[J:2*J]  # Permeate composition
@@ -324,8 +324,8 @@ def mass_balance_CC(vars):
         #bounds=(0,1),
         method='trf',
         xtol=1e-8,
-        ftol=1e-8,
-        gtol=1e-8
+        ftol=1e-10,
+        gtol=1e-10
     )
 
     shooting_error, Solved_membrane_profile = module_mass_balance(overall_sol.x , user_vars) #Running the membrane mass balance with the solution of the shooting method
@@ -333,21 +333,6 @@ def mass_balance_CC(vars):
     if overall_sol.cost > 1e-5: 
         print(f'Large mass balance closure error for overall solution: {overall_sol.cost:.3e}; with residuals {[f"{v:.3e}" for v in shooting_error]}')
 
-    # Display the mass balance closure error of the penultimate element - as an indicator
-    penultimate_element = n_elements - 1
-    penultimate_inputs = Solved_membrane_profile.loc[penultimate_element, Solved_membrane_profile.columns[1:]].values
-    penultimate_guess = [0.5] * (2 * J + 2)
-    penultimate_sol = least_squares(
-        mass_balance,
-        penultimate_guess,
-        args=(penultimate_inputs, user_vars),
-        method='lm',
-        xtol=1e-8,
-        ftol=1e-8,
-        gtol=1e-8
-    )
-
-    #print(f'Mass balance closure error of penultimate element for CC model: {penultimate_sol.cost:.3e}')
     #print(f'shooting method error: {overall_sol.cost:.3e}')
     #print (Solved_membrane_profile)
 

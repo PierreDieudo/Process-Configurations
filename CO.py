@@ -30,7 +30,7 @@ def mass_balance_CO(vars):
 
     #Number of elements N
     J = len(Membrane["Feed_Composition"])
-    min_elements = [1]  # minimum of 2 elements
+    min_elements = [3]  # minimum of 3 elements
     for i in range(J):  # (Coker and Freeman, 1998)
         N_i = (Membrane["Feed_Flow"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
         min_elements.append(N_i)
@@ -162,7 +162,7 @@ def mass_balance_CO(vars):
         element_output = sol_element.x
         
         if sol_element.cost > 1e-5:
-            print(f'Large mass balance closure error at element {k}; error: {sol_element.cost:.3e}; with residuals {sol_element.fun}')
+            print(f'{Membrane["Name"]}: Large mass balance closure error at element {k}')#"error: {sol_element.cost:.3e}; with residuals {sol_element.fun}')
         
         # Calculate the pressure drop for the permeate side
         y_k = element_output[J:2*J]                     # Permeate composition
