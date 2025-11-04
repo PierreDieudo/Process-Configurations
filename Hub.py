@@ -63,11 +63,14 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
     if result.success:
         Fibre_Dimensions['Length'] = result.x
         #print(f'Optimised module length: {Fibre_Dimensions['Length']:.4f} m')
+        #print(f'Delta value at optimised length: {objective(result.x)+0.4}')
     else:
         print("Optimisation failed to find a suitable module length")
         Fibre_Dimensions['Length'] = 0.1 #m - module length
 
-    fibre_area = math.pi * Fibre_Dimensions['Length'] * 1/4 * Fibre_Dimensions["D_out"]**2 #m2
+    #Fibre_Dimensions['Length'] = 0.1 #debug
+
+    fibre_area = math.pi * Fibre_Dimensions['Length'] * Fibre_Dimensions["D_out"] #m2
     Fibre_Dimensions["Number_Fibre"] =  Membrane["Area"] / fibre_area #number of fibres in the module
 
     #Solving the mass balance (for now humid conditions are not considered)

@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>1ca6f59d-1ce2-48c9-bb90-317c2ac57bb3</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>CRMC_5_QA_Ratio.py</StartupFile>
+    <StartupFile>Cement_Plant_2021.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -24,6 +24,7 @@
   <ItemGroup>
     <Compile Include="CC.py" />
     <Compile Include="CO.py" />
+    <Compile Include="Costing.py" />
     <Compile Include="Hub.py" />
     <Compile Include="CRMC_5_QA_Ratio.py" />
     <Compile Include="Cement_Plant_2021.py" />
