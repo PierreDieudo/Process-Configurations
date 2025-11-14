@@ -5,9 +5,7 @@ import os
 from Hub import Hub_Connector
 from UNISIMConnect import UNISIMConnector
 import pandas as pd  
-import tqdm
-import os
-import time
+import matplotlib.pyplot as plt
 
 ''' General information here: 
 
@@ -25,26 +23,34 @@ import time
 
 filename = 'Cement_4Comp_FerrariPaper_Flash.usc' #Unisim file name
 directory = 'C:\\Users\\s1854031\\OneDrive - University of Edinburgh\\Python\\Cement_Plant_2021\\' #Directory of the unisim file
+
 unisim_path = os.path.join(directory, filename)
+
+Options = {
+    "Plot_Profiles" : True,                     # Plots the profiles of membranes 1 and 2 once the process is solved
+    "Export_Profiles": False,                   # Exports membrane profiles into a csv file
+    "Permeance_From_Activation_Energy": True    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
+    }
+
 
 Membrane_1 = {
     "Name": 'Membrane_1',
-    "Solving_Method": 'CC',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Solving_Method": 'CO',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 35+273.15,               # Kelvin
     "Pressure_Feed": 7.7,                  # bar
     "Pressure_Permeate": 1,                 # bar
-    "Q_A_ratio": 7,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
-    "Permeance": [360, 13, 60, 360],        # GPU at 35C  - aged - https://doi.org/10.1016/j.memsci.2017.02.012
+    "Q_A_ratio": 8,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Permeance": [360, 13, 60, 360],        # GPU=
     "Pressure_Drop": False,
     }
 
 Membrane_2 = {
     "Name": 'Membrane_2',
-    "Solving_Method": 'CC',                   
+    "Solving_Method": 'CO',                   
     "Temperature": 35+273.15,                   
     "Pressure_Feed": 9,                       
     "Pressure_Permeate": 1,                  
-    "Q_A_ratio": 20,                          
+    "Q_A_ratio": 15,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
@@ -188,9 +194,10 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
 
         J = len(Membrane["Permeance"]) #number of components
             
-        # Obtain Permeance with temperature:
-        for i in range(J):
-            Membrane["Permeance"][i] = Component_properties["Activation_Energy_Aged"][i][1] * np.exp(-Component_properties["Activation_Energy_Aged"][i][0] / (8.314 * Membrane["Temperature"]))
+        if Options["Permeance_From_Activation_Energy"]:
+            # Obtain Permeance with temperature:
+            for i in range(J):
+                Membrane["Permeance"][i] = Component_properties["Activation_Energy_Aged"][i][1] * np.exp(-Component_properties["Activation_Energy_Aged"][i][0] / (8.314 * Membrane["Temperature"]))
 
         results, profile = Hub_Connector(Export_to_mass_balance)
         Membrane["Retentate_Composition"],Membrane["Permeate_Composition"],Membrane["Retentate_Flow"],Membrane["Permeate_Flow"] = results
@@ -362,3 +369,110 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
 
     print ("----- Final Results -----")
     print (Economics)
+
+    def Profile_Plot():
+        J = len(Membrane_1["Permeance"])
+
+        elements_1 = profile_1['Element']
+        n_1 = elements_1.max()
+
+        elements_2 = profile_2['Element']
+        n_2 = elements_2.max()
+
+        # Calculate normalised length for both profiles
+        normalised_length_1 = (n_1 - elements_1) / n_1
+        normalised_length_2 = (n_2 - elements_2) / n_2
+
+        # Retentate Molar Fractions for Membrane 1
+        plt.subplot(2, 2, 1)
+        for i in range(J):
+            plt.plot(normalised_length_1, profile_1[f'x{i+1}'], label=f'Retentate x{i+1}')
+        plt.xlabel('Normalized Length')
+        plt.ylabel('Molar Fraction')
+        plt.title('Membrane 1 - Retentate Molar Fractions')
+        plt.legend(loc='best')
+        plt.grid()
+
+        # Permeate Molar Fractions for Membrane 1
+        plt.subplot(2, 2, 2)
+        for i in range(J):
+            plt.plot(normalised_length_1, profile_1[f'y{i+1}'], label=f'Permeate y{i+1}', linestyle='--')
+        plt.xlabel('Normalized Length')
+        plt.ylabel('Molar Fraction')
+        plt.title('Membrane 1 - Permeate Molar Fractions')
+        plt.legend(loc='best')
+        plt.grid()
+
+        # Retentate Molar Fractions for Membrane 2
+        plt.subplot(2, 2, 3)
+        for i in range(J):
+            plt.plot(normalised_length_2, profile_2[f'x{i+1}'], label=f'Retentate x{i+1}')
+        plt.xlabel('Normalized Length')
+        plt.ylabel('Molar Fraction')
+        plt.title('Membrane 2 - Retentate Molar Fractions')
+        plt.legend(loc='best')
+        plt.grid()
+
+        # Permeate Molar Fractions for Membrane 2
+        plt.subplot(2, 2, 4)
+        for i in range(J):
+            plt.plot(normalised_length_2, profile_2[f'y{i+1}'], label=f'Permeate y{i+1}', linestyle='--')
+        plt.xlabel('Normalized Length')
+        plt.ylabel('Molar Fraction')
+        plt.title('Membrane 2 - Permeate Molar Fractions')
+        plt.legend(loc='best')
+        plt.grid()
+
+        plt.tight_layout()
+        plt.show(block=False)
+        
+        # Plotting flow rates for both membranes
+        plt.figure(figsize=(14, 6))
+
+        # Membrane 1 - Flow Rates
+        plt.subplot(1, 2, 1)
+        plt.plot(normalised_length_1, profile_1['cut_r/Qr'], label='Retentate Flow')
+        plt.plot(normalised_length_1, profile_1['cut_p/Qp'], label='Permeate Flow', linestyle='--')
+        plt.xlabel('Normalized Length')
+        plt.ylabel('Flow (mol/h)')
+        plt.title('Membrane 1 - Flow Rates')
+        plt.legend(loc='best')
+        plt.grid()
+
+        # Membrane 2 - Flow Rates
+        plt.subplot(1, 2, 2)
+        plt.plot(normalised_length_2, profile_2['cut_r/Qr'], label='Retentate Flow')
+        plt.plot(normalised_length_2, profile_2['cut_p/Qp'], label='Permeate Flow', linestyle='--')
+        plt.xlabel('Normalized Length')
+        plt.ylabel('Flow (mol/h)')
+        plt.title('Membrane 2 - Flow Rates')
+        plt.legend(loc='best')
+        plt.grid()
+
+        plt.tight_layout()
+        plt.show()
+
+
+    def Profile_Export():
+
+        desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop', 'Membrane_Profiles_Cement_Plant_2021.xlsx')
+
+        with pd.ExcelWriter(desktop_path) as writer:
+            profile_1.to_excel(writer, sheet_name='Profile_1')
+            profile_2.to_excel(writer, sheet_name='Profile_2')
+
+        return
+
+
+    if Options["Plot_Profiles"]: Profile_Plot()
+    if Options["Export_Profiles"]: Profile_Export()
+
+
+
+
+
+
+
+
+
+
