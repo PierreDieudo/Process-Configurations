@@ -84,6 +84,7 @@ def mass_balance_CC_ODE(vars):
         approx_sol = least_squares(
             approx_mass_balance,
             approx_guess,
+            method='dogbox',
             bounds=(0,1),
             xtol=1e-6,
             ftol=1e-6   

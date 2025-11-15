@@ -28,18 +28,18 @@ unisim_path = os.path.join(directory, filename)
 
 Options = {
     "Plot_Profiles" : True,                     # Plots the profiles of membranes 1 and 2 once the process is solved
-    "Export_Profiles": False,                   # Exports membrane profiles into a csv file
+    "Export_Profiles": True,                   # Exports membrane profiles into a csv file
     "Permeance_From_Activation_Energy": True    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
     }
 
 
 Membrane_1 = {
     "Name": 'Membrane_1',
-    "Solving_Method": 'CO',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Solving_Method": 'CC',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 35+273.15,               # Kelvin
     "Pressure_Feed": 7.7,                  # bar
     "Pressure_Permeate": 1,                 # bar
-    "Q_A_ratio": 20,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Q_A_ratio": 12,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [360, 13, 60, 360],        # GPU
     "Pressure_Drop": False,
     }
@@ -50,7 +50,7 @@ Membrane_2 = {
     "Temperature": 35+273.15,                   
     "Pressure_Feed": 9,                       
     "Pressure_Permeate": 1,                  
-    "Q_A_ratio": 15,                          
+    "Q_A_ratio": 25,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
@@ -181,86 +181,6 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     #------------------------------------------#
     #--------- Function to run module ---------#
     #------------------------------------------#
-    
-
-    def plot_composition_profiles(profile,name):  
-
-        df = profile.copy()
-        global J
-        z = df["norm_z"]
-
-        fig1, axes1 = plt.subplots(1, 2, figsize=(16, 5))  
-
-        # Retentate composition plot  
-        for j in range(J):  
-            col = f'x{j+1}'  
-            if col in profile.columns:  
-                axes1[0].plot(z, profile[col] * 100, label=f'Component {j+1}')  
-        axes1[0].set_xlabel('Normalised Length')  
-        axes1[0].set_ylabel('Retentate Composition (%)')  
-        axes1[0].set_title(f'{name} Retentate Composition Profile')  
-        axes1[0].legend()  
-        axes1[0].grid(True)  
-
-        # Permeate composition plot  
-        for j in range(J):  
-            col = f'y{j+1}'  
-            if col in profile.columns:  
-                axes1[1].plot(z, profile[col] * 100, label=f'Component {j+1}')  
-        axes1[1].set_xlabel('Normalised Length')  
-        axes1[1].set_ylabel('Permeate Composition (%)')  
-        axes1[1].set_title(f'{name} Permeate Composition Profile')  
-        axes1[1].legend()  
-        axes1[1].grid(True)  
-
-        plt.tight_layout()  
-        plt.show(block=False)
-
-        fig2, axes2 = plt.subplots(1, 2, figsize=(16, 5))  
-
-        # Retentate component flows plot
-        for j in range(J):  
-            col = f'x{j+1}'  
-            if col in profile.columns:  
-                # Multiply component fraction by normalised retentate flow
-                axes2[0].plot(z, profile[col] * profile['cut_r/Qr'], label=f'Component {j+1}')  
-
-        axes2[0].set_xlabel('Normalised Length')  
-        axes2[0].set_ylabel('Retentate Normalised Component Flow (-)')  
-        axes2[0].set_title(f'{name} Retentate Flow Profile')  
-        axes2[0].legend()  
-        axes2[0].grid(True)  
-
-        # Permeate component flows plot
-        for j in range(J):  
-            col = f'y{j+1}'  
-            if col in profile.columns:  
-                # Multiply component fraction by normalised permeate flow
-                axes2[1].plot(z, profile[col] * profile['cut_p/Qp'], label=f'Component {j+1}')  
-
-        axes2[1].set_xlabel('Normalised Length')  
-        axes2[1].set_ylabel('Permeate Normalised Component Flow (-)')  
-        axes2[1].set_title(f'{name} Permeate Flow Profile')  
-        axes2[1].legend()  
-        axes2[1].grid(True)  
-
-        plt.tight_layout()  
-        plt.show(block=True)
-
-
-    def Profile_Export():
-
-        desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop', 'Membrane_Profiles_Cement_Plant_2021.xlsx')
-
-        with pd.ExcelWriter(desktop_path) as writer:
-            profile_1.to_excel(writer, sheet_name='Profile_1')
-            profile_2.to_excel(writer, sheet_name='Profile_2')
-
-        return
-
-
-
-
 
     def Run(Membrane):
 
@@ -286,7 +206,6 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         overall_error = abs(Membrane["Feed_Flow"] + Membrane["Sweep_Flow"] - Membrane["Retentate_Flow"] - Membrane["Permeate_Flow"])/Membrane["Total_Flow"]
         if overall_error > 1e-5:
             print(profile)
-            plot_composition_profiles(profile)
             print()
             print(results)
             print()
@@ -458,17 +377,84 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     print ("----- Final Results -----")
     print (Economics)
 
+    
+    def plot_composition_profiles(profile,name):  
+
+        df = profile.copy()
+        global J
+        z = df["norm_z"]
+
+        fig1, axes1 = plt.subplots(1, 2, figsize=(16, 5))  
+
+        # Retentate composition plot  
+        for j in range(J):  
+            col = f'x{j+1}'  
+            if col in profile.columns:  
+                axes1[0].plot(z, profile[col] * 100, label=f'Component {j+1}')  
+        axes1[0].set_xlabel('Normalised Length')  
+        axes1[0].set_ylabel('Retentate Composition (%)')  
+        axes1[0].set_title(f'{name} Retentate Composition Profile')  
+        axes1[0].legend()  
+        axes1[0].grid(True)  
+
+        # Permeate composition plot  
+        for j in range(J):  
+            col = f'y{j+1}'  
+            if col in profile.columns:  
+                axes1[1].plot(z, profile[col] * 100, label=f'Component {j+1}')  
+        axes1[1].set_xlabel('Normalised Length')  
+        axes1[1].set_ylabel('Permeate Composition (%)')  
+        axes1[1].set_title(f'{name} Permeate Composition Profile')  
+        axes1[1].legend()  
+        axes1[1].grid(True)  
+
+        plt.tight_layout()  
+        plt.show(block=False)
+
+        fig2, axes2 = plt.subplots(1, 2, figsize=(16, 5))  
+
+        # Retentate component flows plot
+        for j in range(J):  
+            col = f'x{j+1}'  
+            if col in profile.columns:  
+                # Multiply component fraction by normalised retentate flow
+                axes2[0].plot(z, profile[col] * profile['cut_r/Qr'], label=f'Component {j+1}')  
+
+        axes2[0].set_xlabel('Normalised Length')  
+        axes2[0].set_ylabel('Retentate Normalised Component Flow (-)')  
+        axes2[0].set_title(f'{name} Retentate Flow Profile')  
+        axes2[0].legend()  
+        axes2[0].grid(True)  
+
+        # Permeate component flows plot
+        for j in range(J):  
+            col = f'y{j+1}'  
+            if col in profile.columns:  
+                # Multiply component fraction by normalised permeate flow
+                axes2[1].plot(z, profile[col] * profile['cut_p/Qp'], label=f'Component {j+1}')  
+
+        axes2[1].set_xlabel('Normalised Length')  
+        axes2[1].set_ylabel('Permeate Normalised Component Flow (-)')  
+        axes2[1].set_title(f'{name} Permeate Flow Profile')  
+        axes2[1].legend()  
+        axes2[1].grid(True)  
+
+        plt.tight_layout()  
+        plt.show(block=True)
+
+
+    def Profile_Export():
+
+        desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop', 'Membrane_Profiles_Cement_Plant_2021.xlsx')
+
+        with pd.ExcelWriter(desktop_path) as writer:
+            profile_1.to_excel(writer, sheet_name='Profile_1')
+            profile_2.to_excel(writer, sheet_name='Profile_2')
+
+        return
+
+
     if Options["Plot_Profiles"]: 
         plot_composition_profiles(profile_1,"Membrane 1")
         plot_composition_profiles(profile_2,"Membrane 2")
     if Options["Export_Profiles"]: Profile_Export()
-
-
-
-
-
-
-
-
-
-
