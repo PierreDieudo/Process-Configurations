@@ -22,6 +22,7 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
     Membrane["Permeance"] = [p * 3.348 * 1e-10 for p in Membrane["Permeance"]]  # convert from GPU to mol/m2.s.Pa
     Membrane["Pressure_Feed"] *= 1e5  #convert to Pa
     Membrane["Pressure_Permeate"] *= 1e5  
+    Membrane["Total_Flow"]  =Membrane["Feed_Flow"]+Membrane["Sweep_Flow"]
 
     #number of components
     J = len(Membrane["Feed_Composition"])
@@ -75,16 +76,20 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
 
     #Solving the mass balance (for now humid conditions are not considered)
     vars = Membrane, Component_properties, Fibre_Dimensions
-
+    
     if Membrane["Solving_Method"] == 'CO':
         from CO import mass_balance_CO
         return mass_balance_CO(vars) # tuple containing [x_ret, y_perm, Qr, Qp] and the data frame with the module profile
-
     elif Membrane["Solving_Method"] == 'CC':
         from CC import mass_balance_CC
         return mass_balance_CC(vars)
-
+        return mass_balance_CO_Molten(vars)
+    elif Membrane["Solving_Method"] == 'CO_ODE':
+        from CO_ODE import mass_balance_CO_ODE
+        return mass_balance_CO_ODE(vars)
+    elif Membrane["Solving_Method"] == 'CC_ODE':
+        from CC_ODE import mass_balance_CC_ODE
+        return mass_balance_CC_ODE(vars)
     else:
-        raise ValueError("Solving_Method must be one of 'CO' or 'CC'")
-
+        raise ValueError("Solving_Method not recognised")
 

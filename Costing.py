@@ -176,7 +176,7 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
     TAC_Cryo *= Index_2014/Index_2017 #convert to 2014 money
 
     ### Penalty evaluation for Purity / Recovery ###
-    Penalty_purity = 5e11 * (Process_param["Target_Purity"] - Process_specs["Purity"]) if (Process_param["Target_Purity"] - Process_specs["Purity"]) > 0 else 0 #6 billion pounds per year penalty per percentage purity under target
+    Penalty_purity = 5e11 * (Process_param["Target_Purity"] - Process_specs["Purity"]) if (Process_param["Target_Purity"] - Process_specs["Purity"]) > 0 else 0 
     
     Primary_emission = (1- Process_specs["Recovery"]) * Process_specs["Feed"]["Feed_Composition"][0] * Process_specs["Feed"]["Feed_Flow"] #(mol/s) CO2 emissions from the process
     Primary_emission *= Process_param["Operating_hours"] * 3600 # convert to mol/yr
