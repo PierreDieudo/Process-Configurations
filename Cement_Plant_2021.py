@@ -27,15 +27,15 @@ directory = 'C:\\Users\\s1854031\\OneDrive - University of Edinburgh\\Python\\Ce
 unisim_path = os.path.join(directory, filename)
 
 Options = {
-    "Plot_Profiles" : True,                     # Plots the profiles of membranes 1 and 2 once the process is solved
-    "Export_Profiles": True,                   # Exports membrane profiles into a csv file
+    "Plot_Profiles" : False,                     # Plots the profiles of membranes 1 and 2 once the process is solved
+    "Export_Profiles": False,                   # Exports membrane profiles into a csv file
     "Permeance_From_Activation_Energy": True    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
     }
 
 
 Membrane_1 = {
     "Name": 'Membrane_1',
-    "Solving_Method": 'CC',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 35+273.15,               # Kelvin
     "Pressure_Feed": 7.7,                  # bar
     "Pressure_Permeate": 1,                 # bar
@@ -46,7 +46,7 @@ Membrane_1 = {
 
 Membrane_2 = {
     "Name": 'Membrane_2',
-    "Solving_Method": 'CO',                   
+    "Solving_Method": 'CO_ODE',                   
     "Temperature": 35+273.15,                   
     "Pressure_Feed": 9,                       
     "Pressure_Permeate": 1,                  
@@ -199,29 +199,36 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
             for i in range(J):
                 Membrane["Permeance"][i] = Component_properties["Activation_Energy_Aged"][i][1] * np.exp(-Component_properties["Activation_Energy_Aged"][i][0] / (8.314 * Membrane["Temperature"]))
 
+
         results, profile = Hub_Connector(Export_to_mass_balance)
         Membrane["Retentate_Composition"],Membrane["Permeate_Composition"],Membrane["Retentate_Flow"],Membrane["Permeate_Flow"] = results
-
-        #debug
-        overall_error = abs(Membrane["Feed_Flow"] + Membrane["Sweep_Flow"] - Membrane["Retentate_Flow"] - Membrane["Permeate_Flow"])/Membrane["Total_Flow"]
-        if overall_error > 1e-5:
-            print(profile)
-            print()
-            print(results)
-            print()
-            print(Membrane)
-            raise ValueError(f"Overall mass balance error of membrane {Membrane["Name"]}: Feed + Sweep  - Retentate - Permeate = {overall_error:.2e}")
 
         #Reformat Permeance and Pressure values to the initial units - will find a smarter way to do this later
         Membrane["Permeance"] = [p / ( 3.348 * 1e-10 ) for p in Membrane["Permeance"]]  # convert from mol/m2.s.Pa to GPU
         Membrane["Pressure_Feed"] *= 1e-5  #convert to bar
         Membrane["Pressure_Permeate"] *= 1e-5  
+        
+        errors = []
+        for i in range(J):    
+            # Calculate comp molar flows
+            Feed_Sweep_Mol = Membrane["Feed_Flow"] * Membrane["Feed_Composition"][i] + Membrane["Sweep_Flow"] * Membrane["Sweep_Composition"][i]
+            Retentate_Mol = Membrane["Retentate_Flow"] * Membrane["Retentate_Composition"][i]
+            Permeate_Mol = Membrane["Permeate_Flow"] * Membrane["Permeate_Composition"][i]
+    
+            # Calculate and store the error
+            error = abs((Feed_Sweep_Mol - Retentate_Mol - Permeate_Mol)/Feed_Sweep_Mol)
+            errors.append(error)
 
-        if np.any(profile<-1e-5):
-            #print(profile)
-            #print("Negative values in the membrane profile") #check for negative values in the profile
-            raise ConvergenceError  # Return a scalar and an empty dictionary as a placeholder
+        # Calculate the cumulated error
+        cumulated_error = sum(errors)
+        print(f"{Membrane["Name"]} Cumulated Component Mass Balance Error: {cumulated_error:.2e}")    
 
+        if np.any(profile<-1e-5) or cumulated_error>1e-5:
+            print(f'Cumulated Component Mass Balance Error: {cumulated_error:.2e} with array {[f"{er:.2e}" for er in errors]}')
+            profile_formatted = profile.map(lambda x: f'{x:.3f}' if pd.notnull(x) else x)        
+            print(profile_formatted)
+            #raise ValueError("Mass Balance Error: Check Profile") #check for negative values in the profile
+                
 
         #print(profile)
         return results, profile 

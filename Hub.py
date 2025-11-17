@@ -32,7 +32,6 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
 
     #Checks the input data for inconsistency
     if abs(sum(Membrane["Feed_Composition"]) - 1) > 1e-8:
-        print(f"Feed composition summing to {np.sum(Membrane["Feed_Composition"]):3f} with array {Membrane["Feed_Composition"]}")
         raise ValueError("Initial mole fractions do not sum to 1")
     if Membrane["Sweep_Flow"]!=0 and abs(sum(Membrane["Sweep_Composition"]) - 1) > 1e-8:
         raise ValueError(f"Initial mole fractions do not sum to 1 ({(sum(Membrane["Sweep_Composition"])):.3e})")
@@ -60,29 +59,29 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         # Minimise the difference between max_delta and 0.4
         return 0.4 - max_delta
 
-    result = minimize_scalar(objective, bounds=(1e-1, 5), method='bounded')
+    result = minimize_scalar(objective, bounds=(3e-1, 5), method='bounded')
     if result.success:
-        Fibre_Dimensions['Length'] = result.x
+        Fibre_Dimensions['Length'] = float(result.x)
         #print(f'Optimised module length: {Fibre_Dimensions['Length']:.4f} m')
-        #print(f'Delta value at optimised length: {objective(result.x)+0.4}')
     else:
         print("Optimisation failed to find a suitable module length")
         Fibre_Dimensions['Length'] = 0.1 #m - module length
-
-    #Fibre_Dimensions['Length'] = 0.1 #debug
 
     fibre_area = math.pi * Fibre_Dimensions['Length'] * Fibre_Dimensions["D_out"] #m2
     Fibre_Dimensions["Number_Fibre"] =  Membrane["Area"] / fibre_area #number of fibres in the module
 
     #Solving the mass balance (for now humid conditions are not considered)
     vars = Membrane, Component_properties, Fibre_Dimensions
-    
+
     if Membrane["Solving_Method"] == 'CO':
         from CO import mass_balance_CO
         return mass_balance_CO(vars) # tuple containing [x_ret, y_perm, Qr, Qp] and the data frame with the module profile
+
     elif Membrane["Solving_Method"] == 'CC':
         from CC import mass_balance_CC
         return mass_balance_CC(vars)
+    elif Membrane["Solving_Method"] == 'CO_Molten':
+        from CO_Molten import mass_balance_CO_Molten
         return mass_balance_CO_Molten(vars)
     elif Membrane["Solving_Method"] == 'CO_ODE':
         from CO_ODE import mass_balance_CO_ODE
@@ -92,4 +91,5 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         return mass_balance_CC_ODE(vars)
     else:
         raise ValueError("Solving_Method not recognised")
+
 
