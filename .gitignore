@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/CRMC_3_mem.py
+/CRMC_5_QA_Ratio.py
+/CRMC_6_mem.py
+/Recyle_into_Sweep.py

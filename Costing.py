@@ -10,10 +10,6 @@ Each cost is categorised (Capex, Opex, etc.) and the costing function returns a 
 
 The costing function is made so any number of data sets falling in a certain category can be handled: e.g., multiple sets of compressors from different trains all taken care under the compressor Capex and Opex categories.
 
-'''
-
-
-'''
     Process dependant variables:
 Process_param = {
     "Target_Purity":  - ,
@@ -26,15 +22,19 @@ Process_param = {
     }
 
     Process data: 
+    
 Process_specs = {
-
-"Compressor_trains" : ((duty1, number_of_compressors1), ... , (dutyi, number_of_compressorsi)), # Compressor trains data)
-"Cooler_trains" : ((area1, waterflow1, number_of_coolers1), ... , (areai, waterflowi, number_of_coolersi)), # Cooler trains data
+...
+"Compressor_trains" : ([duty1, number_of_compressors1], ... , [dutyi, number_of_compressorsi]), # Compressor trains data]
+"Cooler_trains" : ([area1, waterflow1, number_of_coolers1], ... , [areai, waterflowi, number_of_coolersi]), # Cooler trains data
 "Membranes" : (Membrane_1, ..., Membrane_i), # Membrane data)
-"Expanders" : ((expander1_duty), ...(expanderi_duty)), # Expander data
-"Heaters" : ((heater1_duty), ...(heateri_duty)), # Heater data
-"Cryogenics" = ((cooling_power1, temperature1), ... (cooling_poweri, temperaturei)), # Cryogenic cooling data
+"Expanders" : ([expander1_duty], ...[expanderi_duty]), # Expander data
+"Heaters" : ([heater1_duty], ...[heateri_duty]), # Heater data
+"Cryogenics" : ([cooling_power1, temperature1], ... [cooling_poweri, temperaturei]), # Cryogenic cooling data
+"Dehydration" : ([Mass_flow_H2O]) #mass flow of H2O at 30 bar in the compression train
+"Vacuum_Pump": ([Mass_Flow_1,Cp_1],[Mass_Flow_2,Cp_2],...[Mass_Flow_i,Cp_i])
 }
+    
 
     Independent variables:
 Cost from sizing factors - Sinnott
@@ -46,8 +46,6 @@ CEPCI
 Discount Rate
 Project Contingency / Fixed Opex factors
 '''
-
-
 
 
 def Costing(Process_specs, Process_param, Comp_properties): #process specs is dictionary with mem1, mem2, Pre_cond1, Pre_cond2, Compressor_train, Process_param
@@ -73,20 +71,21 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
     Owner_Cost = 0.07 # CEMCAP
     Project_Contingency = 0.15 # CEMCAP
     Indirect_Emission_rate = 262*1e-6 # Electricity generation specific emissions (EU 2014) - in tnCO2/kWh
+    Dehydration_Cost = 4779 #$2018 per tn of H2O removed at 0 bar in compression train
 
     
     '''
-    Process_specs = {
-    ...
-    "Compressor_trains" : ((duty1, number_of_compressors1), ... , (dutyi, number_of_compressorsi)), # Compressor trains data)
-    "Cooler_trains" : ((area1, waterflow1, number_of_coolers1), ... , (areai, waterflowi, number_of_coolersi)), # Cooler trains data
+    Process_specs = 
+    "Compressor_trains" : ([duty1, number_of_compressors1], ... , [dutyi, number_of_compressorsi]), # Compressor trains data]
+    "Cooler_trains" : ([area1, waterflow1, number_of_coolers1], ... , [areai, waterflowi, number_of_coolersi]), # Cooler trains data
     "Membranes" : (Membrane_1, ..., Membrane_i), # Membrane data)
-    "Expanders" : ((expander1_duty), ...(expanderi_duty)), # Expander data
-    "Heaters" : ((heater1_duty), ...(heateri_duty)), # Heater data
-    "Cryogenics" = ((cooling_power1, temperature1), ... (cooling_poweri, temperaturei)), # Cryogenic cooling data
-    }
+    "Expanders" : ([expander1_duty], ...[expanderi_duty]), # Expander data
+    "Heaters" : ([heater1_duty], ...[heateri_duty]), # Heater data
+    "Cryogenics" : ([cooling_power1, temperature1], ... [cooling_poweri, temperaturei]), # Cryogenic cooling data
+    "Dehydration" : ([Mass_flow_H2O]) #mass flow of H2O at 30 bar in the compression train
+    "Vacuum_Pump": ([Duty_1],[Duty_2],...[Duty_i])
     '''
-
+    
     # Assumption for cost of equipment based on size parameters. Taking the average duty across the number of units is quite close to doing it unit by unit and is much simpler.
     def cost_sinnott(param, size):
         cost = param[0] + param[1] * (size ** param[2]) 
@@ -136,7 +135,12 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
         O_compressor += train[0] * Process_param["Operating_hours"] * Electricity_cost
     Power_Consumption = O_compressor / Electricity_cost # Power consumption in kWh/yr
     #print(f'Compressor Opex: {O_compressor/1e6:.0f} million euros / yr')
-    
+       
+    O_vacuum_pump = 0
+    for train in Process_specs["Vacuum_Pump"]:
+        O_vacuum_pump += train[0] * Process_param["Operating_hours"] * Electricity_cost
+    Power_Consumption += O_vacuum_pump / Electricity_cost
+
     O_cooler = 0 # Operational cost of coolers
     for train in Process_specs["Cooler_trains"]:
         O_cooler += train[1] * Process_param["Operating_hours"] / 998 * Water_cost
