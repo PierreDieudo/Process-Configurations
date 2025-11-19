@@ -21,14 +21,14 @@ import matplotlib.pyplot as plt
 #--------- User input parameters ---------#
 #-----------------------------------------#
 
-filename = 'Cement_4Comp_FerrariPaper_Flash.usc' #Unisim file name
+filename = 'Cement_Ferrari2021_nov25.usc' #Unisim file name
 directory = 'C:\\Users\\s1854031\\OneDrive - University of Edinburgh\\Python\\Cement_Plant_2021\\' #Directory of the unisim file
 
 unisim_path = os.path.join(directory, filename)
 
 Options = {
-    "Plot_Profiles" : False,                     # Plots the profiles of membranes 1 and 2 once the process is solved
-    "Export_Profiles": False,                   # Exports membrane profiles into a csv file
+    "Plot_Profiles" : True,                     # Plots the profiles of membranes 1 and 2 once the process is solved
+    "Export_Profiles": True,                   # Exports membrane profiles into a csv file
     "Permeance_From_Activation_Energy": True    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
     }
 
@@ -38,8 +38,8 @@ Membrane_1 = {
     "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 35+273.15,               # Kelvin
     "Pressure_Feed": 7.7,                  # bar
-    "Pressure_Permeate": 1,                 # bar
-    "Q_A_ratio": 12,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Pressure_Permeate": 0.5,                 # bar
+    "Q_A_ratio": 15,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [360, 13, 60, 360],        # GPU
     "Pressure_Drop": False,
     }
@@ -49,14 +49,14 @@ Membrane_2 = {
     "Solving_Method": 'CO_ODE',                   
     "Temperature": 35+273.15,                   
     "Pressure_Feed": 9,                       
-    "Pressure_Permeate": 1,                  
+    "Pressure_Permeate": 0.5,                  
     "Q_A_ratio": 25,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
 
 Process_param = {
-"Recycling_Ratio" : 1,      # Ratio of the retentate flow from Membrane 2 that is recycled back to Membrane 1 feed    
+"Recycling_Ratio" : 0,      # Ratio of the retentate flow from Membrane 2 that is recycled back to Membrane 1 feed    
 "Target_Purity" : 0.95,     # Target purity of the dry permeate from Membrane 2
 "Target_Recovery" : 0.9,    # Target recovery from Membrane 2 - for now not a hard limit, but a target to be achieved
 "Replacement_rate": 4,      # Replacement rate of the membranes (in yr)
@@ -222,7 +222,6 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         # Calculate the cumulated error
         cumulated_error = sum(errors)
         print(f"{Membrane["Name"]} Cumulated Component Mass Balance Error: {cumulated_error:.2e}")    
-
         if np.any(profile<-1e-5) or cumulated_error>1e-5:
             print(f'Cumulated Component Mass Balance Error: {cumulated_error:.2e} with array {[f"{er:.2e}" for er in errors]}')
             profile_formatted = profile.map(lambda x: f'{x:.3f}' if pd.notnull(x) else x)        
@@ -256,6 +255,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         for i in range(J): #results "[0]: x", "[1]: y", "[2]: Q_ret", "[3]: Q_perm"
             Membrane1.set_cell_value(f'D{i+14}', results_1[1][i] * results_1[3] * 3.6) # convert from mol/s to kmol/h and send to unisim
             Membrane1.set_cell_value(f'D{i+21}', results_1[0][i] * results_1[2] * 3.6)
+            unisim.wait_solution(timeout=10, check_pop_ups=2, check_consistency_error=3)
 
         Mem_Train_Choice(Membrane_2) # Get the correct membrane compression train for Membrane 2
             
@@ -267,13 +267,15 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         for i in range(J): #results "[0]: x", "[1]: y", "[2]: Q_ret", "[3]: Q_perm"
             Membrane2.set_cell_value(f'D{i+14}', results_2[1][i] * results_2[3] * 3.6)
             Membrane2.set_cell_value(f'D{i+21}', results_2[0][i] * results_2[2] * 3.6) 
+        unisim.wait_solution(timeout=10, check_pop_ups=2, check_consistency_error=3)
 
         Convergence_Composition = sum(abs(np.array(Placeholder_1["Feed_Composition"]) - np.array(Membrane_1["Feed_Composition"])))
         Convergence_Flowrate = abs( ( (Placeholder_1["Feed_Flow"]) - (Membrane_1["Feed_Flow"] ) ) / (Membrane_1["Feed_Flow"] ) / 100 )
         print(f'Convergence Composition: {Convergence_Composition:.3e}, Convergence Flowrate: {Convergence_Flowrate*100:.3e}')
+        print()
             
         #check for convergence
-        if j > 0 and Convergence_Composition < tolerance and Convergence_Flowrate < tolerance:  
+        if j > 0 and Convergence_Composition < tolerance and Convergence_Flowrate < tolerance or Process_param["Recycling_Ratio"]==0:  
             break
 
         #Ready for next iteration
@@ -354,6 +356,25 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     Liquefaction.append(Liquefaction[4]+3)  # Append the number of compressors and heat exchangers in the liquefaction train
     Liquefaction.append(Liquefaction[4]+3)
 
+    #Obtain water content in the compression train to dehydrate
+    H2O_train = []
+    for k in range(3):
+        H2O_train.append(Duties.get_cell_value(f'H{k+30}'))
+    if H2O_train:
+        print(f'H2O content to be removed from final stream: {max(min(H2O_train),0):.1f} kg/hr')
+    else: H2O_train=0
+    
+    #Obtain vacuum pump duty and resulting cooling duty from each membrane:
+    Vacuum_1 = unisim.get_spreadsheet("Vacuum_1")
+    Vacuum_Duty1 = [Vacuum_1.get_cell_value("B10")] # kW
+    Vacuum_Cooling1 = [Vacuum_1.get_cell_value("G10"),Vacuum_1.get_cell_value("H10")]  # Area, WaterFlow
+ 
+    Vacuum_2 = unisim.get_spreadsheet("Vacuum_2")
+    Vacuum_Duty2 = [Vacuum_2.get_cell_value("B10")] 
+    Vacuum_Cooling2 = [Vacuum_2.get_cell_value("G10"),Vacuum_2.get_cell_value("H10")] 
+    #PS: logic is implemented in unisim for coolers. If output of the vacuum pump is not hot (<35 C), the cooler will not be active and will return 0 duty.
+
+
     '''
     Process_specs = {
     ...
@@ -362,7 +383,10 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     "Membranes" : (Membrane_1, ..., Membrane_i), # Membrane data)
     "Expanders" : ([expander1_duty], ...[expanderi_duty]), # Expander data
     "Heaters" : ([heater1_duty], ...[heateri_duty]), # Heater data
-    "Cryogenics" = ([cooling_power1, temperature1], ... [cooling_poweri, temperaturei]), # Cryogenic cooling data
+    "Cryogenics" : ([cooling_power1, temperature1], ... [cooling_poweri, temperaturei]), # Cryogenic cooling data
+    "Dehydration" : ([Mass_flow_H2O]) #mass flow of H2O at 30 bar in the compression train
+    "Vacuum_Pump": ([Pump_Duty_1],[Duty2],...,[Dutyi])
+    "Vacuum_Cooling": ([area1, waterflow1], ... , [areai, waterflowi]) #required when vacuum pump outlet is hot
     }
     '''
 
@@ -376,14 +400,22 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         "Expanders": Expanders,  # Expander data
         "Heaters": Heaters,  # Heater data
         "Cryogenics": Cryogenics,
+        "Dehydration":(max(min(H2O_train),0)),
+        "Vacuum_Pump":(Vacuum_Duty1, Vacuum_Duty2),
+        "Vacuum_Cooling": (Vacuum_Cooling1, Vacuum_Cooling2)
     }
 
     from Costing import Costing
     Economics = Costing(Process_specs, Process_param, Component_properties)
     print()
     print ("----- Final Results -----")
-    print (Economics)
 
+    keys = list(Economics.keys())
+
+    for index, (key, value) in enumerate(Economics.items()):
+        if index in (1, 2, len(keys)-1): 
+            print(f"{key} : {value:.3f}")
+        else: print(f"{key} : {value:.2e}")
     
     def plot_composition_profiles(profile,name):  
 

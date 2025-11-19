@@ -21,21 +21,20 @@ Process_param = {
     "Contingency" = 0.3 , # or 0.4 (30% or 40% contingency for process design - based on TRL)
     }
 
-    Process data: 
-    
+    Process data:     
 Process_specs = {
-...
-"Compressor_trains" : ([duty1, number_of_compressors1], ... , [dutyi, number_of_compressorsi]), # Compressor trains data]
-"Cooler_trains" : ([area1, waterflow1, number_of_coolers1], ... , [areai, waterflowi, number_of_coolersi]), # Cooler trains data
-"Membranes" : (Membrane_1, ..., Membrane_i), # Membrane data)
-"Expanders" : ([expander1_duty], ...[expanderi_duty]), # Expander data
-"Heaters" : ([heater1_duty], ...[heateri_duty]), # Heater data
-"Cryogenics" : ([cooling_power1, temperature1], ... [cooling_poweri, temperaturei]), # Cryogenic cooling data
-"Dehydration" : ([Mass_flow_H2O]) #mass flow of H2O at 30 bar in the compression train
-"Vacuum_Pump": ([Mass_Flow_1,Cp_1],[Mass_Flow_2,Cp_2],...[Mass_Flow_i,Cp_i])
-}
+    ...
+    "Compressor_trains" : ([duty1, number_of_compressors1], ... , [dutyi, number_of_compressorsi]), # Compressor trains data]
+    "Cooler_trains" : ([area1, waterflow1, number_of_coolers1], ... , [areai, waterflowi, number_of_coolersi]), # Cooler trains data
+    "Membranes" : (Membrane_1, ..., Membrane_i), # Membrane data)
+    "Expanders" : ([expander1_duty], ...[expanderi_duty]), # Expander data
+    "Heaters" : ([heater1_duty], ...[heateri_duty]), # Heater data
+    "Cryogenics" : ([cooling_power1, temperature1], ... [cooling_poweri, temperaturei]), # Cryogenic cooling data
+    "Dehydration" : ([Mass_flow_H2O]) #mass flow of H2O at 30 bar in the compression train
+    "Vacuum_Pump": ([Pump_Duty_1],[Duty2],...,[Dutyi])
+    "Vacuum_Cooling": ([area1, waterflow1], ... , [areai, waterflowi]) #required when vacuum pump outlet is hot
+    }
     
-
     Independent variables:
 Cost from sizing factors - Sinnott
 Installation factors
@@ -63,15 +62,16 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
     Water_dT = 30 # In/out difference for cooling water (assumed constant for all coolers)
     Cp_water = 4.180 # kJ/kg.K - specific heat capacity of water
     Carbon_Tax = 100 # eur/tCO2 - assumed carbon tax
-    Index_2007 = 525.4 # Chemical Engineering Plant Cost Index (CEPCI) average 2007
+    Index_2007 = 525.4 # Chemical Engineering Plant Cost Index (CEPCI) average 2007 - for Sinnott
     Index_2014 = 571.6 # Chemical Engineering Plant Cost Index (CEPCI) average 2014
     Index_2017 = 567.5 # Chemical Engineering Plant Cost Index (CEPCI) for Jan 2017 - for cryogenic costing
+    Index_2018 = 603.1 # Chemical Engineering Plant Cost Index (CEPCI) average 2018 - for dehydration
     Discount_rate = 0.08 # 8% - CEMCAP
     Indirect_Cost = 0.14  # CEMCAP
     Owner_Cost = 0.07 # CEMCAP
     Project_Contingency = 0.15 # CEMCAP
     Indirect_Emission_rate = 262*1e-6 # Electricity generation specific emissions (EU 2014) - in tnCO2/kWh
-    Dehydration_Cost = 4779 #$2018 per tn of H2O removed at 0 bar in compression train
+    Dehydration_Cost = 4779 #$2018 per tn of H2O removed at 0 bar in compression train - doi: 10.1016/j.cherd.2018.07.004
 
     
     '''
@@ -101,6 +101,17 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
     C_compressor *= Compressor_IF # Installed cost of compressors
     #print(f'Compressor Capex: {C_compressor/1e6:.0f} million euros')
     
+    C_vacuum_pump = 0 # installed cost of vacuum pump - same costing than compressor
+    for train in Process_specs["Vacuum_Pump"]:
+        C_vacuum_pump += cost_sinnott(Compressor_param, train[0]) if train[0] > 0 else 0
+    C_vacuum_pump *= Compressor_IF # Installed cost of compressors
+
+    if Process_specs["Vacuum_Cooling"]: # If vacuum pump exhaust temperature is over 35 C, then need a cooler before next set of compressors.
+        C_vacuum_cooling = 0
+        for train in Process_specs["Vacuum_Cooling"]:
+            C_vacuum_cooling += cost_sinnott(Cooler_param, train[0])
+        C_vacuum_cooling *= HEx_IF
+
     C_cooler = 0 # Total installed cost of coolers
     for train in Process_specs["Cooler_trains"]:
         C_cooler += (train[2]) * cost_sinnott(Cooler_param, train[0]/train[2]) if train[0] > 0 else 0
@@ -118,7 +129,7 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
         C_expander += cost_sinnott(Compressor_param, Expander_duty)
     C_expander *= Compressor_IF 
 
-    Capex_tot_2007 = C_compressor + C_cooler + C_membrane + C_expander # Total installed cost of the process in 2007 money
+    Capex_tot_2007 = C_compressor + C_vacuum_pump + C_vacuum_cooling + C_cooler + C_membrane + C_expander # Total installed cost of the process in 2007 money
     Capex_tot_2014 = Capex_tot_2007 * Index_2014/Index_2007 #convert to 2014 money
     Capex_tot_2014 *= 0.7541  #convert to euros using average convertion rate in 2014 (0.7541 according to https://www.exchangerates.org.uk/USD-EUR-spot-exchange-rates-history-2014.html )
     
@@ -141,6 +152,12 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
         O_vacuum_pump += train[0] * Process_param["Operating_hours"] * Electricity_cost
     Power_Consumption += O_vacuum_pump / Electricity_cost
 
+    if Process_specs["Vacuum_Cooling"]: # If vacuum pump exhaust temperature is over 35 C, then need a cooler before next set of compressors.
+        O_vacuum_cooling = 0
+        for train in Process_specs["Vacuum_Cooling"]:
+            O_vacuum_cooling += train[1] * Process_param["Operating_hours"] / 998 * Water_cost
+        O_vacuum_cooling *= HEx_IF
+
     O_cooler = 0 # Operational cost of coolers
     for train in Process_specs["Cooler_trains"]:
         O_cooler += train[1] * Process_param["Operating_hours"] / 998 * Water_cost
@@ -159,7 +176,7 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
     for Heater_duty in Process_specs["Heaters"]:
         O_heater += - (Heater_duty / (Cp_water * Water_dT) * Process_param["Operating_hours"] / 998 * Water_cost)
     
-    Variable_Opex = (O_compressor + O_cooler + O_membrane + O_expander + O_heater) #cost per year
+    Variable_Opex = (O_compressor + O_vacuum_pump + O_vacuum_cooling + O_cooler + O_membrane + O_expander + O_heater) #cost per year
 
     Annual_Maintenance = 0.025 * TPC # (eur/yr) ; 2.5% of total plant cost per year (CEMCAP)
     Maintenance_Labour = 0.4 * Annual_Maintenance # 40% of annual maintenance cost (CEMCAP)
@@ -171,13 +188,18 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
     Total_Opex = Variable_Opex + Fixed_Opex #eur/yr
 
     #-------------------------------------#
-    #--- Cryogenic cost taken as a TAC ---#
+    #--- Additional Costs Taken as TAC ---#
     #-------------------------------------#
     TAC_Cryo = 0  # Total Annualised Cost of Cryogenic cooling, if any
     for Cryo in Process_specs["Cryogenics"]:
         Cryo_Cost = math.exp(Cryogenic_cooler_param[0] - Cryogenic_cooler_param[1] * (Cryo[1] - 273.15)) #$(2017) per GJ
         TAC_Cryo += Cryo_Cost * Cryo[0] * Process_param["Operating_hours"] * 0.8865 #convert to cost per year (eur(2017)/yr)
     TAC_Cryo *= Index_2014/Index_2017 #convert to 2014 money
+
+    TAC_Dehydration = Process_specs["Dehydration"] * 1e-3 * Dehydration_Cost * Process_param["Operating_hours"] # ($2018/yr) cost of removing N tons of H2O from compression train at 30 bar per year.
+    TAC_Cryo *= Index_2014/Index_2018 #convert to 2014 money
+
+    TAC_other = TAC_Cryo + TAC_Dehydration
 
     ### Penalty evaluation for Purity / Recovery ###
     Penalty_purity = 5e11 * (Process_param["Target_Purity"] - Process_specs["Purity"]) if (Process_param["Target_Purity"] - Process_specs["Purity"]) > 0 else 0 
@@ -193,7 +215,7 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
     Penalty = Penalty_purity + Penalty_CO2_emission #+ Extra_Penalty # Total penalty for purity and CO2 emissions
 
     ### Estimate cost of carbon capture process as a TAC
-    TAC_CC = TPC/Process_param["Lifetime"] + Total_Opex + TAC_Cryo
+    TAC_CC = TPC/Process_param["Lifetime"] + Total_Opex + TAC_other
 
     ### Evaluation ###
     Evaluation = TAC_CC + Penalty
@@ -202,9 +224,9 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
     Cost_of_Capture = TAC_CC / ( Process_specs["Feed"]["Feed_Composition"][0] * Process_specs["Feed"]["Feed_Flow"] * Process_param["Operating_hours"] * 3600 * Process_specs["Recovery"] * Comp_properties["Molar_mass"][0] * 1e-6 ) #TAC / (CO2 in feed [mol/s] * 3600 [s/hr] * 8000 [hr/yr] * Recovery * 44 [g/mol] * 1e-6 [tn/g]) = eur per tonne of CO2 captured
 
     Economics = {
-        "Evaluation": Evaluation,
-        "Purity": Process_specs["Purity"],  # Purity of the product
-        "Recovery": Process_specs["Recovery"],  # Recovery of the product
+        "Evaluation": float(Evaluation),
+        "Purity": float(Process_specs["Purity"]),  # Purity of the product
+        "Recovery": float(Process_specs["Recovery"]),  # Recovery of the product
         "TAC_CC": TAC_CC,  # Total Annualised Cost of Carbon Capture
         "Capex_tot": Capex_tot_2014,  # Total Capital Expenditure in 2014 money"
         "Total_Plant_Cost": TPC,  # Total Plant Cost
@@ -212,13 +234,18 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
         "Variable_Opex": Variable_Opex,  # Variable Operational Expenditure per year
         "Fixed_Opex": Fixed_Opex,  # Fixed Operational Expenditure per year
         "TAC_Cryo": TAC_Cryo,  # Total Annualised Cost of Cryogenic cooling
+        "TAC_Dehydration": TAC_Dehydration,
         "Direct_CO2_emission": Primary_emission,  # CO2 emissions from the process in tonnes per year
         "Indirect_CO2_emission": Secondary_Emission,  # CO2 emissions from electricity consumption in tonnes per year"
         "C_compressor": C_compressor,  # Capital cost of compressors
+        "C_vacuum_pump": C_vacuum_pump,
+        "C_vacuum_cooler": C_vacuum_cooling,
         "C_cooler": C_cooler,  # Capital cost of coolers
         "C_membrane": C_membrane,  # Capital cost of membranes
         "C_expander": C_expander,  # Capital cost of expanders
         "O_compressor": O_compressor,  # Operational cost of compressors per year
+        "O_vacuum_pump": O_vacuum_pump,
+        "O_vacuum_cooler": O_vacuum_cooling,
         "O_cooler": O_cooler,  # Operational cost of coolers per year
         "O_membrane": O_membrane,  # Operational cost of membranes per year
         "O_expander": O_expander,  # Operational cost of expanders per year
