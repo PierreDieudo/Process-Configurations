@@ -21,14 +21,14 @@ import matplotlib.pyplot as plt
 #--------- User input parameters ---------#
 #-----------------------------------------#
 
-filename = 'Cement_Ferrari2021_nov25_Copy2.usc' #Unisim file name
+filename = 'Cement_Ferrari2021_nov25_Copy3.usc' #Unisim file name
 directory = 'C:\\Users\\s1854031\\OneDrive - University of Edinburgh\\Python\\Cement_Plant_2021\\' #Directory of the unisim file
 
 unisim_path = os.path.join(directory, filename)
 
 Options = {
-    "Plot_Profiles" : False,                     # Plots the profiles of membranes 1 and 2 once the process is solved
-    "Export_Profiles": False,                   # Exports membrane profiles into a csv file
+    "Plot_Profiles" : True,                     # Plots the profiles of membranes 1 and 2 once the process is solved
+    "Export_Profiles": True,                   # Exports membrane profiles into a csv file
     "Permeance_From_Activation_Energy": True    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
     }
 
@@ -36,10 +36,10 @@ Options = {
 Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": -13.17114763+273.15,               # Kelvin
-    "Pressure_Feed": 4.26315021,                  # bar
-    "Pressure_Permeate": 0.23437377,                 # bar
-    "Q_A_ratio": 3.71706168,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Temperature": 35+273.15,               # Kelvin
+    "Pressure_Feed": 18.331,                  # bar
+    "Pressure_Permeate": 0.2285,                 # bar
+    "Q_A_ratio": 13.2497,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [360, 13, 60, 360],        # GPU
     "Pressure_Drop": False,
     }
@@ -47,10 +47,10 @@ Membrane_1 = {
 Membrane_2 = {
     "Name": 'Membrane_2',
     "Solving_Method": 'CC_ODE',                   
-    "Temperature": -33.4944906+273.15,                   
-    "Pressure_Feed": 2.00675555,                       
-    "Pressure_Permeate": 0.32504373,                  
-    "Q_A_ratio": 2.7811174,                          
+    "Temperature": 35+273.15,                   
+    "Pressure_Feed": 2.60,                       
+    "Pressure_Permeate": 0.8607,                  
+    "Q_A_ratio": 3.9133,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
@@ -315,7 +315,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
                     Duties.get_cell_value(f'H{i+start_row}'),  # Compressor Duty (kW)
                     Duties.get_cell_value(f'I{i+start_row}'),  # Hex Area (m2)
                     Duties.get_cell_value(f'J{i+start_row}'),  # Water Flowrate (kg/hr)
-                    Duties.get_cell_value(f'K{i+start_row}') / 1e6 #from kJ/hr to GJ/hr
+                    Duties.get_cell_value(f'K{i+start_row}') / 1e6 
                     if Duties.get_cell_value(f'K{i+start_row}') is not None and Duties.get_cell_value(f'K{i+start_row}') > 0 
                     else 0  # Cryogenic Cooler Duty (MJ/hr)
                 ]
@@ -360,15 +360,9 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     H2O_train = []
     for k in range(3):
         H2O_train.append(Duties.get_cell_value(f'H{k+30}'))
-
     if H2O_train:
-        valid_water = []
-        for water in H2O_train:
-            if water is not None:  # Check if the element is not None
-                valid_water.append(water)
-        H2O_to_remove = max(min(valid_water), 0) if valid_water else 0
-           
-    else: H2O_to_remove=0
+        print(f'H2O content to be removed from final stream: {max(min(H2O_train),0):.1f} kg/hr')
+    else: H2O_train=0
     
     #Obtain vacuum pump duty and resulting cooling duty from each membrane:
     Vacuum_1 = unisim.get_spreadsheet("Vacuum_1")
@@ -406,7 +400,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         "Expanders": Expanders,  # Expander data
         "Heaters": Heaters,  # Heater data
         "Cryogenics": Cryogenics,
-        "Dehydration":(H2O_to_remove),
+        "Dehydration":(max(min(H2O_train),0)),
         "Vacuum_Pump":(Vacuum_Duty1, Vacuum_Duty2),
         "Vacuum_Cooling": (Vacuum_Cooling1, Vacuum_Cooling2)
     }
