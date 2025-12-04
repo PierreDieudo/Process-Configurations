@@ -9,7 +9,9 @@ import matplotlib.pyplot as plt
 
 ''' General information here: 
 
-    This configuration is from a 2021 publication from Ferrari, et al. https://doi.org/10.3390/en14164772
+    This is a single memrbane configuration.
+
+    On top of the possibiliy of having a set sweep, there are options to include a full or partial recycling of the retentate in the feed, as a sweep, or both.
 
     Please refer to me (s1854031@ed.ac.uk) for any questions or issues
     
@@ -21,7 +23,7 @@ import matplotlib.pyplot as plt
 #--------- User input parameters ---------#
 #-----------------------------------------#
 
-filename = 'Cement_Ferrari2021_nov25.usc' #Unisim file name
+filename = 'Cement_Single_Membrane_Config.usc' #Unisim file name
 directory = 'C:\\Users\\s1854031\\OneDrive - University of Edinburgh\\Python\\Cement_Plant_2021\\' #Directory of the unisim file
 
 unisim_path = os.path.join(directory, filename)
@@ -44,15 +46,18 @@ Membrane_1 = {
     "Pressure_Drop": False,
     }
 
-Membrane_2 = {
-    "Name": 'Membrane_2',
-    "Solving_Method": 'CC_ODE',                   
-    "Temperature": -35.25+273.15,                   
-    "Pressure_Feed": 2.02,                       
-    "Pressure_Permeate": 0.22,                  
-    "Q_A_ratio": 2.795,                          
-    "Permeance": [360, 13, 60, 360],        
-    "Pressure_Drop": False,
+Sweep = {
+    "Option" : True, #True or False - False is no sweep
+    "Source" : "Retentate", # Retentate or User. Defines source of sweep to be fom a retentate recycling or driectly defined from the user
+    ### if the is a sweep ###
+    # if source == retentate:
+    "Ratio" : 0.2, #Define the fraction of the retentate used as the sweep
+    # if source == user:
+    "Temperature" : 35+273.15, #Temperature and pressure of the sweep are conditioned later in unisim to fit the membrane properties
+    "Pressure": 1,
+    "Flowrate": 1e2, #mol/h
+    "Composition": [0, 0.2, 0, 8],
+
     }
 
 Process_param = {
@@ -66,6 +71,10 @@ Process_param = {
 "Contingency": 0.3,         # or 0.4 (30% or 40% contingency for process design - based on TRL)
 }
 
+if Sweep["Option"] and Sweep["Source"]=="Retentate":
+    if Sweep["Ratio"]+Process_param["Recycling_Ratio"] >=1:
+        raise ValueError ("Total Recycling Ratio of retentate (sweep+recycling) is equal or superior to 1")
+
 Component_properties = {
     "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874],[0.0558,3.8970], [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
     "Molar_mass": [44.009, 28.0134, 31.999,18.01528],                                           # Molar mass of each component in g/mol"
@@ -73,14 +82,12 @@ Component_properties = {
     "Activation_Energy_Fresh": ([2880,16806],[16520,226481],[3770,3599],[2880,16806]),          #Valid only if temperature is -20 C or under - not considered for now
     }
 
-
 Fibre_Dimensions = {
 "D_in" : 150 * 1e-6,    # Inner diameter in m (from um)
 "D_out" : 300 * 1e-6,   # Outer diameter in m (from um)
 }
   
 J = len(Membrane_1["Permeance"]) #number of components
-
 
 
 with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
@@ -97,10 +104,10 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     #----------------------------------------#
 
     Membrane1 = unisim.get_spreadsheet('Membrane 1')
-    Membrane2 = unisim.get_spreadsheet('Membrane 2')
-    Recycle_Membrane_2 = unisim.get_spreadsheet('Recycle Membrane 2')
+    Recycle_Membrane_1 = unisim.get_spreadsheet('Recycle Membrane 2')
+    Sweep1 = unisim.get_spreadsheet('Sweep 1')
     Duties = unisim.get_spreadsheet('Duties')
-
+    Sweep_Check = unisim.get_spreadsheet('Sweep_Check')
 
     #-----------------------------------------#
     #------------- Initial setup -------------#
@@ -110,21 +117,25 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     for i in range(J):
         Membrane1.set_cell_value(f'D{i+14}', 0) # Reset Membrane 1 permeate component flows
         Membrane1.set_cell_value(f'D{i+21}', 0) # Reset Membrane 1 retentate component flows
-        Membrane2.set_cell_value(f'D{i+14}', 0) # Reset Membrane 2 permeate component flows
-        Membrane2.set_cell_value(f'D{i+21}', 0) # Reset Membrane 2 retentate component flows
     
     unisim.wait_solution(timeout=10, check_pop_ups=2, check_consistency_error=3)
 
     # Setup Recycling Ratio
-    Recycle_Membrane_2.set_cell_value('C3', Process_param["Recycling_Ratio"] ) # Set recycling ratio in the spreadsheet
+    Recycle_Membrane_1.set_cell_value('C3', Process_param["Recycling_Ratio"] ) # Set recycling ratio in the spreadsheet
+    if Sweep["Option"] and Sweep["Source"]=="Retentate":
+        Recycle_Membrane_1.set_cell_value('C4', Sweep["Ratio"] ) # Set retentate recycling as sweep ratio in the spreadsheet
 
     # Setup temperatures and pressures
     Membrane1.set_cell_value('D3', Membrane_1["Temperature"])  # Set temperature in Kelvin
     Membrane1.set_cell_value('D4', Membrane_1["Pressure_Feed"])  # Set feed pressure in bar
     Membrane1.set_cell_value('D6', Membrane_1["Pressure_Permeate"])  # Set permeate pressure in bar
-    Membrane2.set_cell_value('D3', Membrane_2["Temperature"]) 
-    Membrane2.set_cell_value('D4', Membrane_2["Pressure_Feed"]) 
-    Membrane2.set_cell_value('D6', Membrane_2["Pressure_Permeate"])  # Set permeate pressure in bar
+    
+    if Sweep["Option"] :
+        Sweep1.set_cell_value('D3', Sweep["Temperature"]) 
+        Sweep1.set_cell_value('D4', Sweep["Pressure"]) 
+        if Sweep["Source"]=="User":
+            for i in range(J):
+                Sweep1.set_cell_value(f'C{9+i}', Sweep["Flowrate"]*Sweep["Composition"][i])
 
     unisim.wait_solution(timeout=10, check_pop_ups=2, check_consistency_error=3)
         
@@ -147,13 +158,6 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
                     Duties.get_cell_value(f'J{i+9}'),  # Water Flowrate (kg/hr)
                     Duties.get_cell_value(f'K{i+9}')/1e6   # Cryogenic Cooler Duty (GJ/hr)
                 ])
-            elif Membrane == Membrane_2:
-                Train_data.append([  
-                    Duties.get_cell_value(f'H{i+15}'),  # Compressor Duty (kW)
-                    Duties.get_cell_value(f'I{i+15}'),  # Hex Area (m2)
-                    Duties.get_cell_value(f'J{i+15}'),   # Water Flowrate (kg/hr)
-                    Duties.get_cell_value(f'K{i+15}')/1e6   # Cryogenic Cooler Duty (GJ/hr)
-                ])
 
             else: raise ValueError ("Incorrect membrane denomination")
 
@@ -172,11 +176,6 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
             Membrane_1['Feed_Flow'] = Mem_train.get_cell_value('C3') / 3.6 # feed flow rate from UNISIM in mol/s (from kmol/h)
             Membrane_1["Feed_Composition"] = [Mem_train.get_cell_value(f'C{i+4}') for i in range(J)] #feed mole fractions from UNISIM
             Membrane_1["Train_Data"] = lowest_duty_train # Store the train data in the membrane dictionary
-        elif Membrane == Membrane_2:
-            Mem_train = unisim.get_spreadsheet(f'Train 20{lowest_duty_train_index + 1}')
-            Membrane_2['Feed_Flow'] = Mem_train.get_cell_value('C3') / 3.6 # feed flow rate from UNISIM in mol/s (from kmol/h)
-            Membrane_2["Feed_Composition"] = [Mem_train.get_cell_value(f'C{i+4}') for i in range(J)] #feed mole fractions from UNISIM
-            Membrane_2["Train_Data"] = lowest_duty_train # Store the train data in the membrane dictionary
 
     #------------------------------------------#
     #--------- Function to run module ---------#
@@ -187,8 +186,23 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         # Set membrane Area based on its feed flow and Q_A_ratio:
         Membrane["Area"] = (Membrane["Feed_Flow"] * 0.0224  * 3600) / Membrane["Q_A_ratio"] # (0.0224 is the molar volume of an ideal gas at STP in m3/mol)
 
-        Membrane["Sweep_Flow"] = 0 # No sweep in this configuration
-        Membrane["Sweep_Composition"] = [0] * len(Membrane_1["Permeance"])
+
+        if not Sweep["Option"]:
+            Membrane["Sweep_Flow"] = 0 # No sweep
+            Membrane["Sweep_Composition"] = [0] * len(Membrane_1["Permeance"])
+
+        elif Sweep["Source"]=="User": # Constant Sweep from User dictionary
+            Membrane["Sweep_Flow"] = Sweep1.get_cell_value('C15') #need to obtain the sweep flowrates after conditioning to membrane temperature and pressure
+            Membrane["Sweep_Composition"] = [0] * J
+            for i in range(J):
+                Membrane["Sweep_Composition"] = Sweep1.get_cell_value(f'C{16+i}') / Membrane["Sweep_Flow"]
+
+        elif Sweep["Source"]=="Retentate": #Sweep from Retentate Recycling
+            Membrane["Sweep_Flow"] = Sweep1.get_cell_value('G8') #need to obtain the sweep flowrates after conditioning to membrane temperature and pressure
+            Membrane["Sweep_Composition"] = [0] * J
+            for i in range(J):
+                Membrane["Sweep_Composition"] = Sweep1.get_cell_value(f'G{9+i}') / Membrane["Sweep_Flow"]
+
 
         Export_to_mass_balance = Membrane, Component_properties, Fibre_Dimensions
 
@@ -255,18 +269,6 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         for i in range(J): #results "[0]: x", "[1]: y", "[2]: Q_ret", "[3]: Q_perm"
             Membrane1.set_cell_value(f'D{i+14}', results_1[1][i] * results_1[3] * 3.6) # convert from mol/s to kmol/h and send to unisim
             Membrane1.set_cell_value(f'D{i+21}', results_1[0][i] * results_1[2] * 3.6)
-            unisim.wait_solution(timeout=10, check_pop_ups=2, check_consistency_error=3)
-
-        Mem_Train_Choice(Membrane_2) # Get the correct membrane compression train for Membrane 2
-            
-        try: 
-            results_2, profile_2 = Run(Membrane_2) # Run the second membrane
-        except ConvergenceError:
-            raise ValueError ("Convergence error in membrane 2")
-
-        for i in range(J): #results "[0]: x", "[1]: y", "[2]: Q_ret", "[3]: Q_perm"
-            Membrane2.set_cell_value(f'D{i+14}', results_2[1][i] * results_2[3] * 3.6)
-            Membrane2.set_cell_value(f'D{i+21}', results_2[0][i] * results_2[2] * 3.6) 
         unisim.wait_solution(timeout=10, check_pop_ups=2, check_consistency_error=3)
 
         Convergence_Composition = sum(abs(np.array(Placeholder_1["Feed_Composition"]) - np.array(Membrane_1["Feed_Composition"])))
@@ -324,34 +326,45 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
 
 
         Train1 = gather_train_data(9)
-        Train2 = gather_train_data(15)
         Liquefaction = gather_train_data(3)
 
         # Get the train with the lowest compressor duty for each category
         Train1_lowest = get_lowest_duty_train(Train1)
-        Train2_lowest = get_lowest_duty_train(Train2)
         Liquefaction_lowest = get_lowest_duty_train(Liquefaction)
 
-        return Train1_lowest, Train2_lowest, Liquefaction_lowest
+        return Train1_lowest, Liquefaction_lowest
 
-    Train1, Train2, Liquefaction = Duty_Gather() # Gather the duties from the solved process
+    Train1, Liquefaction = Duty_Gather() # Gather the duties from the solved process
 
     # Gather the energy recovery form the retentate. Assume flue gas at 1 bar and a maximum temperature of 120 C to match original flue gas.
-    Expanders = (Duties.get_cell_value('H21'), Duties.get_cell_value('H24'), Duties.get_cell_value('H27')) # Get the retentate expanders duties (kW)
-    Heaters = (Duties.get_cell_value('I21'), Duties.get_cell_value('I24')) # Get the retentate heaters duties (kJ/hr)
+    Expanders = (Duties.get_cell_value('H15') ) # Get the retentate expanders duties (kW)
+    Heaters = (Duties.get_cell_value('I15')) # Get the retentate heaters duties (kJ/hr)
+    Cooler_trains = ( (Train1[1], Train1[2], Train1[-1]), (Liquefaction[1], Liquefaction[2], Liquefaction[-1]) )
+    Compressor_trains = ( (Train1[0], Train1[-2]), (Liquefaction[0], Liquefaction[-2]) )
+
+    if Process_param["Recycling_Ratio"]>0:#add energy recovery of recycling loop
+        Expanders.append(Duties.get_cell_value('H18'))
+
+    if Sweep["Option"]: #add energy recovery from sweep conditioning
+        if Sweep["Source"]=="Retentate": #we have an expander and heater
+            Expanders.append(Duties.get_cell_value('H22'))
+            Heaters.append(Duties.get_cell_value('I22'))
+            Cooler_trains[0][-1] += 1 #add one heat exchanger to the mem1 pre conditioning for heat recovery
+
+        elif Sweep["Source"]=="User":
+            Expanders.append(Duties.get_cell_value('H21'))
+            if Sweep_Check.get_cell_value('E8')>=Sweep_Check.get_cell_value('D8'): #Need heater for sweep conditioning
+                Heaters.append(Duties.get_cell_value('I21'))
+                Cooler_trains[0][-1] += 1
+            else: #need cooler for sweep conditioning
+                Cooler_trains.append( Sweep_Check.get_cell_value('G9'), Sweep_Check.get_cell_value('H9'),1) #add cooler to equipment list
 
     # Gather the cryogenic cooler duties - if any
-    Cryogenics = ( (Train1[3], Membrane_1["Temperature"]) , (Train2[3], Membrane_2["Temperature"]) ) # Get the cryogenic cooler duties (MJ/hr) for each membrane train
+    Cryogenics = ( (Train1[3], Membrane_1["Temperature"])) # Get the cryogenic cooler duties (MJ/hr) for each membrane train
 
     # Add information to the compression trains about their number of compressors and coolers
     Train1.append(Train1[4]+1) # Append the number of compressors in the train
     Train1.append(Train1[4]+2)  # Extra heat exchanger for retentate heat recovery
-
-    Train2.append(Train2[4]+1)
-    if Process_param["Recycling_Ratio"] == 1: # If the recycling ratio is 1, no extra heat exchanger is needed for retentate heat recovery
-        Train2.append(Train2[4]+1)
-    else: 
-        Train2.append(Train2[4]+2)  # Extra heat exchange for retentate heat recovery
 
     Liquefaction.append(Liquefaction[4]+3)  # Append the number of compressors and heat exchangers in the liquefaction train
     Liquefaction.append(Liquefaction[4]+3)
@@ -374,10 +387,6 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     Vacuum_1 = unisim.get_spreadsheet("Vacuum_1")
     Vacuum_Duty1 = [Vacuum_1.get_cell_value("B10")] # kW
     Vacuum_Cooling1 = [Vacuum_1.get_cell_value("G10"),Vacuum_1.get_cell_value("H10")]  # Area, WaterFlow
- 
-    Vacuum_2 = unisim.get_spreadsheet("Vacuum_2")
-    Vacuum_Duty2 = [Vacuum_2.get_cell_value("B10")] 
-    Vacuum_Cooling2 = [Vacuum_2.get_cell_value("G10"),Vacuum_2.get_cell_value("H10")] 
     #PS: logic is implemented in unisim for coolers. If output of the vacuum pump is not hot (<35 C), the cooler will not be active and will return 0 duty.
 
 
@@ -398,23 +407,22 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
 
     Process_specs = {
         "Feed": Feed,
-        "Purity": (results_2[1][0]/(1-results_2[1][-1])),
-        "Recovery": results_2[1][0]*results_2[3]/(Feed["Feed_Composition"][0]*Feed["Feed_Flow"]),
-        "Compressor_trains": ( (Train1[0], Train1[-2]), (Train2[0],Train2[-2]), (Liquefaction[0], Liquefaction[-2]) ),  # Compressor trains data
-        "Cooler_trains": ( (Train1[1], Train2[2], Train1[-1]), (Train2[1],Train2[2], Train2[-1]), (Liquefaction[1], Liquefaction[2], Liquefaction[-1]) ),  # Cooler trains data"
-        "Membranes": (Membrane_1, Membrane_2),
+        "Purity": (results_1[1][0]/(1-results_1[1][-1])),
+        "Recovery": results_1[1][0]*results_1[3]/(Feed["Feed_Composition"][0]*Feed["Feed_Flow"]),
+        "Compressor_trains": Compressor_trains ,  # Compressor trains data
+        "Cooler_trains": Cooler_trains,  # Cooler trains data"
+        "Membranes": (Membrane_1),
         "Expanders": Expanders,  # Expander data
         "Heaters": Heaters,  # Heater data
         "Cryogenics": Cryogenics,
         "Dehydration":(H2O_to_remove),
-        "Vacuum_Pump":(Vacuum_Duty1, Vacuum_Duty2),
-        "Vacuum_Cooling": (Vacuum_Cooling1, Vacuum_Cooling2)
+        "Vacuum_Pump":(Vacuum_Duty1),
+        "Vacuum_Cooling": (Vacuum_Cooling1)
     }
 
     from Costing import Costing
     Economics = Costing(Process_specs, Process_param, Component_properties)
     print(Membrane_1)
-    print(Membrane_2)
     print()
     print ("----- Final Results -----")
 
@@ -496,12 +504,10 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
 
         with pd.ExcelWriter(desktop_path) as writer:
             profile_1.to_excel(writer, sheet_name='Profile_1')
-            profile_2.to_excel(writer, sheet_name='Profile_2')
-
         return
 
 
     if Options["Plot_Profiles"]: 
         plot_composition_profiles(profile_1,"Membrane 1")
-        plot_composition_profiles(profile_2,"Membrane 2")
     if Options["Export_Profiles"]: Profile_Export()
+

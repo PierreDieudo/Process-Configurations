@@ -33,6 +33,7 @@
     <Compile Include="Cement_Plant_2021.py" />
     <Compile Include="CRMC_6_mem.py" />
     <Compile Include="CRMC_3_mem.py" />
+    <Compile Include="Single_Membrane.py" />
     <Compile Include="Recyle_into_Sweep.py" />
   </ItemGroup>
   <ItemGroup>
