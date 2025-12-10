@@ -211,9 +211,8 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
         T = Cryo[1]
         Cryo_COP = 1.93e-8*(T**5) -2.30e-5*(T**4) +1.10e-2*(T**3) -2.61*(T**2) + 3.11e2*T - 1.48e4
         Cryo_Energy += Cryo[0] * 1e6 /3600  * Process_param["Operating_hours"] / Cryo_COP #from GJ/hr to kWh/yr including the coefficient of performance
-    
+    print(f'Cryogenic power consumption {Cryo_Energy:.3e} kWh/yr')
     Power_Consumption += Cryo_Energy
-    Cryo_Emission = Cryo_Energy * Indirect_Emission_rate # (tn/yr) CO2 emission from electricity consumption in cryogenic cooling. 
 
     ### Penalty for CO2 emissions ###
     Primary_emission = (1- Process_specs["Recovery"]) * Process_specs["Feed"]["Feed_Composition"][0] * Process_specs["Feed"]["Feed_Flow"] #(mol/s) CO2 emissions from the process
@@ -237,8 +236,10 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
     Cost_of_Capture = TAC_CC / ( Process_specs["Feed"]["Feed_Composition"][0] * Process_specs["Feed"]["Feed_Flow"] * Process_param["Operating_hours"] * 3600 * Process_specs["Recovery"] * Comp_properties["Molar_mass"][0] * 1e-6 ) #TAC / (CO2 in feed [mol/s] * 3600 [s/hr] * 8000 [hr/yr] * Recovery * 44 [g/mol] * 1e-6 [tn/g]) = eur per tonne of CO2 captured
 
     ### Specific Primary Energy Consumption for CO2 Avoided ###
-    SPECCA = (Power_Consumption/Electrivity_Generation_Efficiency)/Equiv_Emission *1e-3 #MJ/kgCO2
-
+    q_eq_ccs = Power_Consumption*3.6/Electrivity_Generation_Efficiency #primary consumption of the CCS plant (in MJ/yr)
+    e_eq_ccs = Equiv_Emission * 1000 #kgco2/yr
+    e_eq_base = Process_param["Base_Plant_Primary_Emission"]+Process_param["Base_Plant_Secondary_Emission"] #base plant total emission in kgCO2/yr
+    SPECCA = (q_eq_ccs)/(e_eq_base-(e_eq_ccs+Process_param["Base_Plant_Secondary_Emission"])) #MJ/kgCO2
     Economics = {
         "Evaluation": float(Evaluation),
         "Purity": float(Process_specs["Purity"]),  # Purity of the product

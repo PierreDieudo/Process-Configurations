@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 #--------- User input parameters ---------#
 #-----------------------------------------#
 
-filename = 'Cement_Ferrari2021_nov25.usc' #Unisim file name
+filename = 'Cement_Ferrari2021_nov25_Copy3.usc' #Unisim file name
 directory = 'C:\\Users\\s1854031\\OneDrive - University of Edinburgh\\Python\\Cement_Plant_2021\\' #Directory of the unisim file
 
 unisim_path = os.path.join(directory, filename)
@@ -36,10 +36,10 @@ Options = {
 Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": -16.44+273.15,               # Kelvin
-    "Pressure_Feed": 4.78,                  # bar
-    "Pressure_Permeate": 0.22,                 # bar
-    "Q_A_ratio": 3.62,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Temperature": -13.10+273.15,               # Kelvin
+    "Pressure_Feed": 4.2630,                  # bar
+    "Pressure_Permeate": 0.2340,                 # bar
+    "Q_A_ratio": 3.7170,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [360, 13, 60, 360],        # GPU
     "Pressure_Drop": False,
     }
@@ -47,10 +47,10 @@ Membrane_1 = {
 Membrane_2 = {
     "Name": 'Membrane_2',
     "Solving_Method": 'CC_ODE',                   
-    "Temperature": -35.25+273.15,                   
-    "Pressure_Feed": 2.02,                       
-    "Pressure_Permeate": 0.22,                  
-    "Q_A_ratio": 2.795,                          
+    "Temperature": -33.49+273.15,                   
+    "Pressure_Feed": 2.0,                       
+    "Pressure_Permeate": 0.3250,                  
+    "Q_A_ratio": 2.7810,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
@@ -62,7 +62,10 @@ Process_param = {
 "Replacement_rate": 4,      # Replacement rate of the membranes (in yr)
 "Operating_hours": 8000,    # Operating hours per year
 "Lifetime": 20,             # Lifetime of the plant (in yr)
+"Base_Clinker_Production": 9.65e5, #(tn/yr) 
 "Base Plant Cost": 149.8 * 1e6,     # Total direct cost of plant (no CCS) in 2014 money
+"Base_Plant_Primary_Emission": (846)*9.65e5 ,# (kgCo2/tn_clk to kgCO2/yr) primary emissions of the base cement plant per year 
+"Base_Plant_Secondary_Emission": (34)*9.65e5 ,# (kgCo2/tn_clk to kgCO2/yr) primary emissions of the base cement plant per year 
 "Contingency": 0.3,         # or 0.4 (30% or 40% contingency for process design - based on TRL)
 }
 
@@ -220,9 +223,10 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
             errors.append(error)
 
         # Calculate the cumulated error
-        cumulated_error = sum(errors)
+        cumulated_error = sum(errors) - errors[-1] # Remove water because its relative error is large at low temperature (1e-4). Its absolute error however is negligible due to its very low concentration
+        
         print(f"{Membrane["Name"]} Cumulated Component Mass Balance Error: {cumulated_error:.2e}")    
-        if np.any(profile<-1e-5) or cumulated_error>(J*1e-5):
+        if np.any(profile<-1e-5) or cumulated_error>1e-5 or errors[-1]>1e-3:            
             print(f'Cumulated Component Mass Balance Error: {cumulated_error:.2e} with array {[f"{er:.2e}" for er in errors]}')
             profile_formatted = profile.map(lambda x: f'{x:.3f}' if pd.notnull(x) else x)        
             print(profile_formatted)
@@ -372,15 +376,9 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     
     #Obtain vacuum pump duty and resulting cooling duty from each membrane:
     Vacuum_1 = unisim.get_spreadsheet("Vacuum_1")
-    Vacuum_Duty1 = [Vacuum_1.get_cell_value("B10")] # kW
+    Vacuum_Duty1 = Vacuum_1.get_cell_value("B10") # kW
     Vacuum_Cooling1 = [Vacuum_1.get_cell_value("G10"),Vacuum_1.get_cell_value("H10")]  # Area, WaterFlow
  
-    Vacuum_2 = unisim.get_spreadsheet("Vacuum_2")
-    Vacuum_Duty2 = [Vacuum_2.get_cell_value("B10")] 
-    Vacuum_Cooling2 = [Vacuum_2.get_cell_value("G10"),Vacuum_2.get_cell_value("H10")] 
-    #PS: logic is implemented in unisim for coolers. If output of the vacuum pump is not hot (<35 C), the cooler will not be active and will return 0 duty.
-
-
     '''
     Process_specs = {
     ...
@@ -406,9 +404,9 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         "Expanders": Expanders,  # Expander data
         "Heaters": Heaters,  # Heater data
         "Cryogenics": Cryogenics,
-        "Dehydration":(H2O_to_remove),
-        "Vacuum_Pump":(Vacuum_Duty1, Vacuum_Duty2),
-        "Vacuum_Cooling": (Vacuum_Cooling1, Vacuum_Cooling2)
+        "Dehydration":[H2O_to_remove],
+        "Vacuum_Pump":([Vacuum_Duty1]),
+        "Vacuum_Cooling": ([Vacuum_Cooling1])
     }
 
     from Costing import Costing
