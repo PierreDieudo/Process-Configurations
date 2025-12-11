@@ -282,7 +282,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         Convergence_Composition = sum(abs(np.array(Placeholder_1["Feed_Composition"]) - np.array(Membrane_1["Feed_Composition"])))
         Convergence_Flowrate = abs( ( (Placeholder_1["Feed_Flow"]) - (Membrane_1["Feed_Flow"] ) ) / (Membrane_1["Feed_Flow"] ) / 100 )
         print(f'Convergence Composition: {Convergence_Composition:.3e}, Convergence Flowrate: {Convergence_Flowrate*100:.3e}')
-        print()
+        print() 
             
         #check for convergence
         if j > 0 and Convergence_Composition < tolerance and Convergence_Flowrate < tolerance or Process_param["Recycling_Ratio"]==0:  
@@ -431,18 +431,15 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         "Vacuum_Cooling": (Vacuum_Cooling1),
     }
 
-    print(Process_specs)
-
     from Costing import Costing
     Economics = Costing(Process_specs, Process_param, Component_properties)
-    print(Membrane_1)
     print()
     print ("----- Final Results -----")
 
     keys = list(Economics.keys())
 
     for index, (key, value) in enumerate(Economics.items()):
-        if index in (1, 2, len(keys)-1): 
+        if index in (1, 2, len(keys)-1, len(keys)): 
             print(f"{key} : {value:.3f}")
         else: print(f"{key} : {value:.2e}")
     

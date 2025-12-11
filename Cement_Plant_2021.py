@@ -376,9 +376,15 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     
     #Obtain vacuum pump duty and resulting cooling duty from each membrane:
     Vacuum_1 = unisim.get_spreadsheet("Vacuum_1")
-    Vacuum_Duty1 = Vacuum_1.get_cell_value("B10") # kW
+    Vacuum_Duty1 = [Vacuum_1.get_cell_value("B10")] # kW
     Vacuum_Cooling1 = [Vacuum_1.get_cell_value("G10"),Vacuum_1.get_cell_value("H10")]  # Area, WaterFlow
- 
+    
+    Vacuum_2 = unisim.get_spreadsheet("Vacuum_2")
+    Vacuum_Duty2 = [Vacuum_2.get_cell_value("B10")] 
+    Vacuum_Cooling2 = [Vacuum_2.get_cell_value("G10"),Vacuum_2.get_cell_value("H10")] 
+    #PS: logic is implemented in unisim for coolers. If output of the vacuum pump is not hot (<35 C), the cooler will not be active and will return 0 duty.
+
+
     '''
     Process_specs = {
     ...
@@ -404,9 +410,9 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         "Expanders": Expanders,  # Expander data
         "Heaters": Heaters,  # Heater data
         "Cryogenics": Cryogenics,
-        "Dehydration":[H2O_to_remove],
-        "Vacuum_Pump":([Vacuum_Duty1]),
-        "Vacuum_Cooling": ([Vacuum_Cooling1])
+        "Dehydration":(H2O_to_remove),
+        "Vacuum_Pump":(Vacuum_Duty1, Vacuum_Duty2),
+        "Vacuum_Cooling": (Vacuum_Cooling1, Vacuum_Cooling2)
     }
 
     from Costing import Costing
@@ -455,7 +461,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
 
         plt.tight_layout()  
         plt.show(block=False)
-
+        '''
         fig2, axes2 = plt.subplots(1, 2, figsize=(16, 5))  
 
         # Retentate component flows plot
@@ -486,7 +492,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
 
         plt.tight_layout()  
         plt.show(block=True)
-
+        '''
 
     def Profile_Export():
 
