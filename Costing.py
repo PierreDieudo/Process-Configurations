@@ -101,7 +101,7 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
         C_compressor += (train[1]) * cost_sinnott(Compressor_param, train[0]/train[1]) if train[0] > 0 else 0 # Compressor trains data is a list of [duty, number_of_compressors] pairs
     C_compressor *= Compressor_IF # Installed cost of compressors
     #print(f'Compressor Capex: {C_compressor/1e6:.0f} million euros')
-     
+    
     C_vacuum_pump = 0 # installed cost of vacuum pump - same costing than compressor
     for train in Process_specs["Vacuum_Pump"]:
         C_vacuum_pump += cost_sinnott(Compressor_param, train[0]) if train[0] > 0 else 0
@@ -121,7 +121,6 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
 
     C_membrane = 0 # Total installed cost of membranes
     for Mem in Process_specs["Membranes"]:
-
         C_membrane += Mem["Area"] * Membrane_param
     C_membrane *= Membrane_IF # Installed cost of membranes
     #print(f'Membrane Capex: {C_membrane/1e6:.0f} million euros')
@@ -212,7 +211,7 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
         T = Cryo[1]
         Cryo_COP = 1.93e-8*(T**5) -2.30e-5*(T**4) +1.10e-2*(T**3) -2.61*(T**2) + 3.11e2*T - 1.48e4
         Cryo_Energy += Cryo[0] * 1e6 /3600  * Process_param["Operating_hours"] / Cryo_COP #from GJ/hr to kWh/yr including the coefficient of performance
-    print(f'Cryogenic power consumption {Cryo_Energy:.3e} kWh/yr')
+
     Power_Consumption += Cryo_Energy
 
     ### Penalty for CO2 emissions ###

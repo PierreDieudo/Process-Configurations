@@ -1,5 +1,4 @@
 
-from click import pause
 import numpy as np
 import os
 from Hub import Hub_Connector
@@ -26,11 +25,6 @@ filename = 'Cement_CRMC_3mem_dec25.usc' #Unisim file name
 directory = 'C:\\Users\\s1854031\\OneDrive - University of Edinburgh\\Python\\Cement_Plant_2021\\' #Directory of the unisim file
 unisim_path = os.path.join(directory, filename)
 
-Feed = {
-    "Feed_Composition": [0.2, 0.6, 0.1, 0.1], # molar fraction
-    "Feed_Flow": 1e4,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
-}
-
 Options = {
     "Plot_Profiles" : True,                     # Plots the profiles of membranes 1 and 2 once the process is solved
     "Export_Profiles": False,                   # Exports membrane profiles into a csv file
@@ -40,10 +34,10 @@ Options = {
 Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": -13.10+273.15,               # Kelvin
-    "Pressure_Feed": 4.2630,                  # bar
-    "Pressure_Permeate": 0.2340,                 # bar
-    "Q_A_ratio": 3.7170,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Temperature": 17.82027518+273.15,               # Kelvin
+    "Pressure_Feed": 3.02024172,                  # bar
+    "Pressure_Permeate": 0.53911219,                 # bar
+    "Q_A_ratio": 15.05115647,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [360, 13, 60, 360],        # GPU
     "Pressure_Drop": False,
     }
@@ -51,10 +45,10 @@ Membrane_1 = {
 Membrane_2 = {
     "Name": 'Membrane_2',
     "Solving_Method": 'CC_ODE',                   
-    "Temperature": -33.49+273.15,                   
-    "Pressure_Feed": 2.0,                       
-    "Pressure_Permeate": 0.3250,                  
-    "Q_A_ratio": 2.7810,                          
+    "Temperature": -0.36548219+273.15,                   
+    "Pressure_Feed": 8.19142021,                       
+    "Pressure_Permeate": 0.58659301,                  
+    "Q_A_ratio": 5.60774114,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
@@ -62,10 +56,10 @@ Membrane_2 = {
 Membrane_3 = {
     "Name": 'Membrane_2',
     "Solving_Method": 'CC_ODE',                   
-    "Temperature": -33.49+273.15,                   
-    "Pressure_Feed": 2.0,                       
-    "Pressure_Permeate": 0.3250,                  
-    "Q_A_ratio": 2.7810,                          
+    "Temperature": -9.22647369+273.15,                   
+    "Pressure_Feed": 6.17869085,                       
+    "Pressure_Permeate": 0.61672781,                  
+    "Q_A_ratio": 68.59099104,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
@@ -370,9 +364,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
                     Duties.get_cell_value(f'H{i+start_row}'),  # Compressor Duty (kW)
                     Duties.get_cell_value(f'I{i+start_row}'),  # Hex Area (m2)
                     Duties.get_cell_value(f'J{i+start_row}'),  # Water Flowrate (kg/hr)
-                    Duties.get_cell_value(f'K{i+start_row}') / 1e6 #from kJ/hr to GJ/hr
-                    if Duties.get_cell_value(f'K{i+start_row}') is not None and Duties.get_cell_value(f'K{i+start_row}') > 0 
-                    else 0  # Cryogenic Cooler Duty (MJ/hr)
+                    Duties.get_cell_value(f'K{i+start_row}') / 1e6 if Duties.get_cell_value(f'K{i+start_row}') is not None and Duties.get_cell_value(f'K{i+start_row}') > 0 else 0  # Cryogenic Cooler Duty (MJ/hr)
                 ]
                 for i in range(3)
             ]
@@ -439,7 +431,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
 
     Heaters = [(Duties.get_cell_value('I27'))] #One or two expanders depending on the wether mem1 pre conditioning train has an expander or not
     if to_bar(Membrane_2["Pressure_Feed"]) > to_bar(Membrane_1["Pressure_Feed"]):
-        Expanders.append(Duties.get_cell_value('I30'))
+        Heaters.append(Duties.get_cell_value('I30'))
 
     Cryogenics =( (Train1[3], Membrane_1["Temperature"]),(Train2[3], Membrane_2["Temperature"]),(Train2[3], Membrane_2["Temperature"])) # Get the cryogenic cooler duties (MJ/hr) for each membrane train
 
@@ -448,8 +440,8 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     Compressor_trains = ([Train1[0], Train1[-2]], [Train2[0], Train2[-2]], [Train3[0], Train3[-2]], [Liquefaction[0], Liquefaction[-2]]) #duty, number of compressors
 
     if to_bar(Membrane_2["Pressure_Feed"]) > to_bar(Membrane_1["Pressure_Feed"]):
-        Cooler_trains[1:]
-        Compressor_trains[1:]
+        Cooler_trains = Cooler_trains[1:]
+        Compressor_trains = Compressor_trains[1:]
         
     '''
     Process_specs = {

@@ -36,10 +36,10 @@ Options = {
 Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": -13.10+273.15,               # Kelvin
-    "Pressure_Feed": 4.2630,                  # bar
-    "Pressure_Permeate": 0.2340,                 # bar
-    "Q_A_ratio": 3.7170,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Temperature": -33.3856628+273.15,               # Kelvin
+    "Pressure_Feed": 2.1736178,                  # bar
+    "Pressure_Permeate": 0.60973085,                 # bar
+    "Q_A_ratio": 19.2465389,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [360, 13, 60, 360],        # GPU
     "Pressure_Drop": False,
     }
@@ -47,10 +47,10 @@ Membrane_1 = {
 Membrane_2 = {
     "Name": 'Membrane_2',
     "Solving_Method": 'CC_ODE',                   
-    "Temperature": -33.49+273.15,                   
-    "Pressure_Feed": 2.0,                       
-    "Pressure_Permeate": 0.3250,                  
-    "Q_A_ratio": 2.7810,                          
+    "Temperature": -30.1081939+273.15,                   
+    "Pressure_Feed": 3.75729766,                       
+    "Pressure_Permeate": 0.49410953,                  
+    "Q_A_ratio": 25.0548078,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
