@@ -31,7 +31,8 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         raise ValueError("Number of components does not match data provided")
 
     #Checks the input data for inconsistency
-    if abs(sum(Membrane["Feed_Composition"]) - 1) > 1e-8:
+    if abs(sum(Membrane["Feed_Composition"]) - 1) > 1e-6:
+        print(f'Sum of feed composition: {(sum(Membrane["Feed_Composition"])):.3e}')
         raise ValueError("Initial mole fractions do not sum to 1")
     if Membrane["Sweep_Flow"]!=0 and abs(sum(Membrane["Sweep_Composition"]) - 1) > 1e-8:
         raise ValueError(f"Initial mole fractions do not sum to 1 ({(sum(Membrane["Sweep_Composition"])):.3e})")
@@ -59,13 +60,15 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         # Minimise the difference between max_delta and 0.4
         return 0.4 - max_delta
 
-    result = minimize_scalar(objective, bounds=(3e-1, 5), method='bounded')
+    result = minimize_scalar(objective, bounds=(3e-1, 2), method='bounded')
     if result.success:
         Fibre_Dimensions['Length'] = float(result.x)
         #print(f'Optimised module length: {Fibre_Dimensions['Length']:.4f} m')
     else:
         print("Optimisation failed to find a suitable module length")
         Fibre_Dimensions['Length'] = 0.1 #m - module length
+
+    Fibre_Dimensions['Length'] = 0.3 #m - module length fixed for testing
 
     fibre_area = math.pi * Fibre_Dimensions['Length'] * Fibre_Dimensions["D_out"] #m2
     Fibre_Dimensions["Number_Fibre"] =  Membrane["Area"] / fibre_area #number of fibres in the module

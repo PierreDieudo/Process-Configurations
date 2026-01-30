@@ -29,27 +29,27 @@ directory = 'C:\\Users\\s1854031\\OneDrive - University of Edinburgh\\Python\\Ce
 unisim_path = os.path.join(directory, filename)
 
 Options = {
-    "Plot_Profiles" : True,                     # Plots the profiles of membranes 1 and 2 once the process is solved
+    "Plot_Profiles" : False,                     # Plots the profiles of membranes 1 and 2 once the process is solved
     "Export_Profiles": False,                   # Exports membrane profiles into a csv file
-    "Permeance_From_Activation_Energy": True    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
+    "Permeance_From_Activation_Energy": False    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
     }
-
+print(f'Permeance from Activation Energy: {Options["Permeance_From_Activation_Energy"]}')
 
 Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": 35+273.15,               # Kelvin
-    "Pressure_Feed": 4.78,                  # bar
+    "Temperature": 25+273.15,               # Kelvin
+    "Pressure_Feed": 8.35580629,                  # bar
     "Pressure_Permeate": 0.22,                 # bar
-    "Q_A_ratio": 15,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
-    "Permeance": [360, 13, 60, 360],        # GPU
+    "Q_A_ratio": 12.1242985,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Permeance": [1000, 1000/200, 1000/80, 1000],        # GPU
     "Pressure_Drop": False,
     }
 
 Sweep = {
-    "Option" : True, #True or False - False is no sweep
+    "Option" : False, #True or False - False is no sweep
     "Source" : "Retentate", # Retentate or User. Defines source of sweep to be fom a retentate recycling or driectly defined from the user
-    ### if the is a sweep ###
+    ### if the is a sweep 2
     # if source == retentate:
     "Ratio" : 0.1, #Define the fraction of the retentate used as the sweep
     # if source == user:
@@ -61,7 +61,7 @@ Sweep = {
     }
 
 Process_param = {
-"Recycling_Ratio" : 0.5,      # Ratio of the retentate flow from Membrane 2 that is recycled back to Membrane 1 feed    
+"Recycling_Ratio" : 0.0,      # Ratio of the retentate flow from Membrane 2 that is recycled back to Membrane 1 feed    
 "Target_Purity" : 0.95,     # Target purity of the dry permeate from Membrane 2
 "Target_Recovery" : 0.9,    # Target recovery from Membrane 2 - for now not a hard limit, but a target to be achieved
 "Replacement_rate": 4,      # Replacement rate of the membranes (in yr)
@@ -434,6 +434,9 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     from Costing import Costing
     Economics = Costing(Process_specs, Process_param, Component_properties)
     print()
+    print(Membrane_1)
+    print()
+
     print ("----- Final Results -----")
 
     keys = list(Economics.keys())

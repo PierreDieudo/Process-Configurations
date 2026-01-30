@@ -198,7 +198,7 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
     TAC_Cryo *= Index_2014/Index_2017 #convert to 2014 money
 
     TAC_Dehydration = Process_specs["Dehydration"] * 1e-3 * Dehydration_Cost * Process_param["Operating_hours"] # ($2018/yr) cost of removing N tons of H2O from compression train at 30 bar per year.
-    TAC_Cryo *= Index_2014/Index_2018 #convert to 2014 money
+    TAC_Dehydration *= Index_2014/Index_2018 #convert to 2014 money
 
     TAC_other = TAC_Cryo + TAC_Dehydration
 
@@ -270,8 +270,8 @@ def Costing(Process_specs, Process_param, Comp_properties): #process specs is di
         "Penalty_purity": Penalty_purity,  # Penalty for purity under target
         "Penalty_CO2_emission": Penalty_CO2_emission,  # Penalty for CO2 emissions under target
         "Power_Consumption": Power_Consumption,  # Power consumption in kWhe/yr
-        "Cost_of_Capture": Cost_of_Capture,
-        "SPECCA": SPECCA,
+        "Cost_of_Capture": Cost_of_Capture, # Cost of Capture in eur per tonne of CO2 captured
+        "SPECCA": SPECCA, #Specific Primary Energy Consumption for CO2 Avoided` in MJ/kgCO2
 
         }
 

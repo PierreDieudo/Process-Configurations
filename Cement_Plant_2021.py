@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 #--------- User input parameters ---------#
 #-----------------------------------------#
 
-filename = 'Cement_Ferrari2021_nov25_Copy3.usc' #Unisim file name
+filename = 'Cement_Ferrari2021_nov25_Copy2.usc' #Unisim file name2
 directory = 'C:\\Users\\s1854031\\OneDrive - University of Edinburgh\\Python\\Cement_Plant_2021\\' #Directory of the unisim file
 
 unisim_path = os.path.join(directory, filename)
@@ -29,29 +29,30 @@ unisim_path = os.path.join(directory, filename)
 Options = {
     "Plot_Profiles" : False,                     # Plots the profiles of membranes 1 and 2 once the process is solved
     "Export_Profiles": False,                   # Exports membrane profiles into a csv file
-    "Permeance_From_Activation_Energy": True    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
+    "Permeance_From_Activation_Energy": False    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
     }
+print(f'Permeance from Activation Energy: {Options["Permeance_From_Activation_Energy"]}')
 
 
 Membrane_1 = {
     "Name": 'Membrane_1',
-    "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": -33.3856628+273.15,               # Kelvin
-    "Pressure_Feed": 2.1736178,                  # bar
-    "Pressure_Permeate": 0.60973085,                 # bar
-    "Q_A_ratio": 19.2465389,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
-    "Permeance": [360, 13, 60, 360],        # GPU
+    "Solving_Method": 'CC_ODE',             # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Temperature": 25+273.15,               # Kelvin
+    "Pressure_Feed": 6.23936,                     # bar
+    "Pressure_Permeate": 0.22,              # bar
+    "Q_A_ratio": 3.1084,                       # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Permeance": [600,600/150,600/60,600],        # GPU
     "Pressure_Drop": False,
     }
 
 Membrane_2 = {
     "Name": 'Membrane_2',
     "Solving_Method": 'CC_ODE',                   
-    "Temperature": -30.1081939+273.15,                   
-    "Pressure_Feed": 3.75729766,                       
-    "Pressure_Permeate": 0.49410953,                  
-    "Q_A_ratio": 25.0548078,                          
-    "Permeance": [360, 13, 60, 360],        
+    "Temperature": 25+273.15,                   
+    "Pressure_Feed": 1.45352074,                       
+    "Pressure_Permeate": 0.22,                  
+    "Q_A_ratio":  1.47674939,                          
+    "Permeance": [600,600/150,600/60,600],        
     "Pressure_Drop": False,
     }
 
@@ -78,8 +79,8 @@ Component_properties = {
 
 
 Fibre_Dimensions = {
-"D_in" : 150 * 1e-6,    # Inner diameter in m (from um)
-"D_out" : 300 * 1e-6,   # Outer diameter in m (from um)
+"D_in" : 600 * 1e-6,    # Inner diameter in m (from um)
+"D_out" : 800 * 1e-6,   # Outer diameter in m (from um)
 }
   
 J = len(Membrane_1["Permeance"]) #number of components
@@ -429,6 +430,11 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
             print(f"{key} : {value:.3f}")
         else: print(f"{key} : {value:.2e}")
     
+    ### used for DoE ###
+    print()
+    print(f'Purity: {Economics["Purity"]:.4f}')
+    print(f'TAC + Carbon Tax: {Economics["TAC_CC"] + Economics["Penalty_CO2_emission"]:.3e}')
+
     def plot_composition_profiles(profile,name):  
 
         df = profile.copy()
