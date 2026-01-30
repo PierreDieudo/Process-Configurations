@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 #--------- User input parameters ---------#
 #-----------------------------------------#
 
-filename = 'Cement_Ferrari2021_nov25_Copy2.usc' #Unisim file name2
+filename = 'Cement_Ferrari2021_nov25.usc' #Unisim file name2
 directory = 'C:\\Users\\s1854031\\OneDrive - University of Edinburgh\\Python\\Cement_Plant_2021\\' #Directory of the unisim file
 
 unisim_path = os.path.join(directory, filename)
@@ -29,19 +29,21 @@ unisim_path = os.path.join(directory, filename)
 Options = {
     "Plot_Profiles" : False,                     # Plots the profiles of membranes 1 and 2 once the process is solved
     "Export_Profiles": False,                   # Exports membrane profiles into a csv file
-    "Permeance_From_Activation_Energy": False    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
-    }
-print(f'Permeance from Activation Energy: {Options["Permeance_From_Activation_Energy"]}')
+    "Permeance_From_Activation_Energy": False,    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
+    "Extra_Recovery_Penalty": False,  # If true, adds a penalty to the objective function to encourage higher recoveries
+    "Recovery_Soft_Cap": (True, 0.9),  # (Activate limit, value) - If true, sets a soft limit on recovery: recovery above the soft cap will not decrease the primary emission cost further 
+    }    
+print(Options)
 
 
 Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',             # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 25+273.15,               # Kelvin
-    "Pressure_Feed": 6.23936,                     # bar
+    "Pressure_Feed": 3.10886657,                     # bar
     "Pressure_Permeate": 0.22,              # bar
-    "Q_A_ratio": 3.1084,                       # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
-    "Permeance": [600,600/150,600/60,600],        # GPU
+    "Q_A_ratio": 2.28057585,                    # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Permeance": [1000,1000/0,1000/20,1000],        # GPU
     "Pressure_Drop": False,
     }
 
@@ -49,10 +51,10 @@ Membrane_2 = {
     "Name": 'Membrane_2',
     "Solving_Method": 'CC_ODE',                   
     "Temperature": 25+273.15,                   
-    "Pressure_Feed": 1.45352074,                       
+    "Pressure_Feed": 1.30146368,                       
     "Pressure_Permeate": 0.22,                  
-    "Q_A_ratio":  1.47674939,                          
-    "Permeance": [600,600/150,600/60,600],        
+    "Q_A_ratio":  1.56392423,                          
+    "Permeance": [1000,1000/50,1000/20,1000],  
     "Pressure_Drop": False,
     }
 
@@ -377,11 +379,11 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     
     #Obtain vacuum pump duty and resulting cooling duty from each membrane:
     Vacuum_1 = unisim.get_spreadsheet("Vacuum_1")
-    Vacuum_Duty1 = [Vacuum_1.get_cell_value("B10")] # kW
+    Vacuum_Duty1 = Vacuum_1.get_cell_value("B10") # kW
     Vacuum_Cooling1 = [Vacuum_1.get_cell_value("G10"),Vacuum_1.get_cell_value("H10")]  # Area, WaterFlow
     
     Vacuum_2 = unisim.get_spreadsheet("Vacuum_2")
-    Vacuum_Duty2 = [Vacuum_2.get_cell_value("B10")] 
+    Vacuum_Duty2 = Vacuum_2.get_cell_value("B10") 
     Vacuum_Cooling2 = [Vacuum_2.get_cell_value("G10"),Vacuum_2.get_cell_value("H10")] 
     #PS: logic is implemented in unisim for coolers. If output of the vacuum pump is not hot (<35 C), the cooler will not be active and will return 0 duty.
 
@@ -416,8 +418,24 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         "Vacuum_Cooling": (Vacuum_Cooling1, Vacuum_Cooling2)
     }
 
+    def replace_none_with_zero(obj):
+        if obj is None:
+            return 0
+        if isinstance(obj, dict):
+            return {k: replace_none_with_zero(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [replace_none_with_zero(v) for v in obj]
+        if isinstance(obj, tuple):
+            return tuple(replace_none_with_zero(v) for v in obj)
+        if isinstance(obj, set):
+            return {replace_none_with_zero(v) for v in obj}
+
+        return obj
+    Process_specs = replace_none_with_zero(Process_specs)
+
+
     from Costing import Costing
-    Economics = Costing(Process_specs, Process_param, Component_properties)
+    Economics = Costing(Process_specs, Process_param, Component_properties, Options)
     print(Membrane_1)
     print(Membrane_2)
     print()

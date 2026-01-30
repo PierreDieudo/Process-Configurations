@@ -28,16 +28,18 @@ unisim_path = os.path.join(directory, filename)
 Options = {
     "Plot_Profiles" : False,                     # Plots the profiles of membranes 1 and 2 once the process is solved
     "Export_Profiles": False,                   # Exports membrane profiles into a csv file
-    "Permeance_From_Activation_Energy": True    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
-    }
+    "Permeance_From_Activation_Energy": True,    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
+    "Extra_Recovery_Penalty": False,  # If true, adds a penalty to the objective function to encourage higher recoveries
+    "Recovery_Soft_Cap": (True, 0.9),  # (Activate limit, value) - If true, sets a soft limit on recovery: recovery above the soft cap will not decrease the primary emission cost further 
+    }    
 
 Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": -1.129+273.15,               # Kelvin
-    "Pressure_Feed": 8.6109,                  # bar
-    "Pressure_Permeate": 0.335988,                 # bar
-    "Q_A_ratio": 11.77998,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Temperature": 8.81731445+273.15,               # Kelvin
+    "Pressure_Feed": 3.04339019,                  # bar
+    "Pressure_Permeate": 0.234,                 # bar
+    "Q_A_ratio": 4.45004304,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [360, 13, 60, 360],        # GPU
     "Pressure_Drop": False,
     }
@@ -45,10 +47,10 @@ Membrane_1 = {
 Membrane_2 = {
     "Name": 'Membrane_2',
     "Solving_Method": 'CC_ODE',                   
-    "Temperature": -27.932+273.15,                   
-    "Pressure_Feed": 11.292,                       
-    "Pressure_Permeate": 0.749,                  
-    "Q_A_ratio": 7.9851,                          
+    "Temperature": 17.82055728+273.15,                   
+    "Pressure_Feed": 3.18474511,                       
+    "Pressure_Permeate": 0.325,                  
+    "Q_A_ratio": 8.44163311,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
@@ -56,10 +58,10 @@ Membrane_2 = {
 Membrane_3 = {
     "Name": 'Membrane_3',
     "Solving_Method": 'CC_ODE',                   
-    "Temperature": 4.6992+273.15,                   
-    "Pressure_Feed": 5.21018,                       
-    "Pressure_Permeate": 0.7823,                  
-    "Q_A_ratio": 21.1166,                          
+    "Temperature": -39.7333792+273.15,                   
+    "Pressure_Feed": 2.03163748,                       
+    "Pressure_Permeate": 0.325,                  
+    "Q_A_ratio": 2.05698377,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
@@ -412,13 +414,13 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     else: H2O_to_remove=0
 
     #Obtain vacuum pump duty and resulting cooling duty from each membrane:
-    Vacuum_Duty1 = [Vacuum_1.get_cell_value("B10")] # kW
+    Vacuum_Duty1 = Vacuum_1.get_cell_value("B10") # kW
     Vacuum_Cooling1 = [Vacuum_1.get_cell_value("G10"),Vacuum_1.get_cell_value("H10")]  # Area, WaterFlow
     
-    Vacuum_Duty2 = [Vacuum_2.get_cell_value("B10")] 
+    Vacuum_Duty2 = Vacuum_2.get_cell_value("B10")
     Vacuum_Cooling2 = [Vacuum_2.get_cell_value("G10"),Vacuum_2.get_cell_value("H10")] 
 
-    Vacuum_Duty3 = [Vacuum_3.get_cell_value("B10")] 
+    Vacuum_Duty3 = Vacuum_3.get_cell_value("B10")
     Vacuum_Cooling3 = [Vacuum_3.get_cell_value("G10"),Vacuum_3.get_cell_value("H10")] 
     
     Vacuum_pump = (Vacuum_Duty1,Vacuum_Duty2,Vacuum_Duty3)
@@ -471,11 +473,25 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     "Vacuum_Pump":Vacuum_pump, # Vacuum pump duties
     "Vacuum_Cooling": Vacuum_cooling, # Vacuum cooling data - required when vacuum pump outlet is hot
     }
+    def replace_none_with_zero(obj):
+            if obj is None:
+                return 0
+            if isinstance(obj, dict):
+                return {k: replace_none_with_zero(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [replace_none_with_zero(v) for v in obj]
+            if isinstance(obj, tuple):
+                return tuple(replace_none_with_zero(v) for v in obj)
+            if isinstance(obj, set):
+                return {replace_none_with_zero(v) for v in obj}
 
-    print(Process_specs)
+            return obj
+
+    Process_specs = replace_none_with_zero(Process_specs)    
+    #print(Process_specs)
 
     from Costing import Costing
-    Economics = Costing(Process_specs, Process_param, Component_properties)
+    Economics = Costing(Process_specs, Process_param, Component_properties, Options)
 
     print()
     print ("----- Final Results -----")

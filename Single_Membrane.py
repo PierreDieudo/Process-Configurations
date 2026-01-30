@@ -31,17 +31,19 @@ unisim_path = os.path.join(directory, filename)
 Options = {
     "Plot_Profiles" : False,                     # Plots the profiles of membranes 1 and 2 once the process is solved
     "Export_Profiles": False,                   # Exports membrane profiles into a csv file
-    "Permeance_From_Activation_Energy": False    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
-    }
+    "Permeance_From_Activation_Energy": True,    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
+    "Extra_Recovery_Penalty": False,  # If true, adds a penalty to the objective function to encourage higher recoveries
+    "Recovery_Soft_Cap": (True, 0.9),  # (Activate limit, value) - If true, sets a soft limit on recovery: recovery above the soft cap will not decrease the primary emission cost further 
+    }    
 print(f'Permeance from Activation Energy: {Options["Permeance_From_Activation_Energy"]}')
 
 Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 25+273.15,               # Kelvin
-    "Pressure_Feed": 8.35580629,                  # bar
+    "Pressure_Feed": 6.90496515,                  # bar
     "Pressure_Permeate": 0.22,                 # bar
-    "Q_A_ratio": 12.1242985,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Q_A_ratio": 10.7129534,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [1000, 1000/200, 1000/80, 1000],        # GPU
     "Pressure_Drop": False,
     }
@@ -346,8 +348,6 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     Liquefaction.append(Liquefaction[4]+3)  # Append the number of compressors and heat exchangers in the liquefaction train
     Liquefaction.append(Liquefaction[4]+3)
 
-    print(Train1)
-    print(Liquefaction)
     # Gather the energy recovery form the retentate. Assume flue gas at 1 bar and a maximum temperature of 120 C to match original flue gas.
     Expanders = [Duties.get_cell_value('H15')]  
     Heaters = [Duties.get_cell_value('I15')]  
@@ -396,7 +396,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     
     #Obtain vacuum pump duty and resulting cooling duty from each membrane:
     Vacuum_1 = unisim.get_spreadsheet("Vacuum_1")
-    Vacuum_Duty1 = [[Vacuum_1.get_cell_value("B10")]] # kW
+    Vacuum_Duty1 = Vacuum_1.get_cell_value("B10") # kW
     Vacuum_Cooling1 = [[Vacuum_1.get_cell_value("G10"),Vacuum_1.get_cell_value("H10")]]  # Area, WaterFlow
     #PS: logic is implemented in unisim for coolers. If output of the vacuum pump is not hot (<35 C), the cooler will not be active and will return 0 duty.
 
@@ -427,12 +427,26 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         "Heaters": Heaters,  # Heater data
         "Cryogenics": Cryogenics,
         "Dehydration":(H2O_to_remove),
-        "Vacuum_Pump":(Vacuum_Duty1),
+        "Vacuum_Pump":(Vacuum_Duty1,),
         "Vacuum_Cooling": (Vacuum_Cooling1),
     }
+    def replace_none_with_zero(obj):
+        if obj is None:
+            return 0
+        if isinstance(obj, dict):
+            return {k: replace_none_with_zero(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [replace_none_with_zero(v) for v in obj]
+        if isinstance(obj, tuple):
+            return tuple(replace_none_with_zero(v) for v in obj)
+        if isinstance(obj, set):
+            return {replace_none_with_zero(v) for v in obj}
+
+        return obj
+    Process_specs = replace_none_with_zero(Process_specs)
 
     from Costing import Costing
-    Economics = Costing(Process_specs, Process_param, Component_properties)
+    Economics = Costing(Process_specs, Process_param, Component_properties, Options)
     print()
     print(Membrane_1)
     print()
