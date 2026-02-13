@@ -209,13 +209,13 @@ def Costing(Process_specs, Process_param, Comp_properties, Options): #process sp
     ### Penalty evaluation for Purity ###
     Penalty_purity = 5e10 * (Process_param["Target_Purity"] - Process_specs["Purity"]) if (Process_param["Target_Purity"] - Process_specs["Purity"]) > 0 else 0 
     
+    if Options["Purity_Hard_Cap"]: #if purity hard cap is active
+        Purity_diff = Process_param["Target_Purity"] - Process_specs["Purity"]
+        Penalty_purity = 5e9 * abs(Purity_diff) if Purity_diff < 0.005 or Purity_diff > 0 else 0 #leave some tolerance of 0.5% above target purity
+
 
     ### Penalty for CO2 emissions ###
     Primary_emission = (1- Process_specs["Recovery"]) * Process_specs["Feed"]["Feed_Composition"][0] * Process_specs["Feed"]["Feed_Flow"] #(mol/s) CO2 emissions from the process
-    
-    if Options["Recovery_Soft_Cap"][0]: #if recovery soft cap is active
-        if Options["Recovery_Soft_Cap"][1] <= Process_specs["Recovery"]: #if recovery is above the soft cap - remove the primary emissions (i.e., no incentive to recover further)
-            Primary_emission = 0
     
     Primary_emission *= Process_param["Operating_hours"] * 3600 # convert to mol/yr
     Primary_emission *= 44.01 * 1e-6 # convert to tonnes/yr (44.01 g/mol)    
@@ -223,11 +223,14 @@ def Costing(Process_specs, Process_param, Comp_properties, Options): #process sp
     Secondary_Emission = Power_Consumption * Indirect_Emission_rate # (tonnes/yr) CO2 emissions from electricity consumption
     Equiv_Emission = Primary_emission + Secondary_Emission
     
+    if Options["Recovery_Soft_Cap"][0]: #if recovery soft cap is active
+        if Options["Recovery_Soft_Cap"][1] <= Process_specs["Recovery"]: #if recovery is above the soft cap - remove the primary emissions (i.e., no incentive to recover further)
+            Equiv_Emission = Secondary_Emission
     
     Penalty_CO2_emission = Equiv_Emission * Carbon_Tax #eur/yr 
     
     if Options["Extra_Recovery_Penalty"] and (Options["Recovery_Soft_Cap"][1] > Process_specs["Recovery"]) > 0: # Extra penalty for recovery under 90% to encourage high recovery rates
-        Extra_Penalty = 5e11 * (0.90 - Process_specs["Recovery"])
+        Extra_Penalty = 5e10 * (0.90 - Process_specs["Recovery"])
     else : Extra_Penalty = 0
 
     Penalty = Penalty_purity + Penalty_CO2_emission + Extra_Penalty # Total penalty for purity and CO2 emissions
@@ -242,7 +245,10 @@ def Costing(Process_specs, Process_param, Comp_properties, Options): #process sp
     Evaluation = TAC_CC + Penalty
 
     ### Cost of Capture ###
-    Cost_of_Capture = TAC_CC / ( Process_specs["Feed"]["Feed_Composition"][0] * Process_specs["Feed"]["Feed_Flow"] * Process_param["Operating_hours"] * 3600 * Process_specs["Recovery"] * Comp_properties["Molar_mass"][0] * 1e-6 ) #TAC / (CO2 in feed [mol/s] * 3600 [s/hr] * 8000 [hr/yr] * Recovery * 44 [g/mol] * 1e-6 [tn/g]) = eur per tonne of CO2 captured
+    Total_Captured= Process_specs["Feed"]["Feed_Composition"][0] * Process_specs["Feed"]["Feed_Flow"] * Process_param["Operating_hours"] * 3600 * Process_specs["Recovery"] * Comp_properties["Molar_mass"][0] * 1e-6 # Total CO2 captured in tonnes per year
+
+    Cost_of_Avoidance = TAC_CC / ( Total_Captured - Secondary_Emission) #TAC / (CO2 captured - CO2 produced by CCS) = eur per tonne of CO2 avoided
+    Cost_of_Capture = TAC_CC / (Total_Captured) #TAC / (CO2 captured) = eur per tonne of CO2 captured
 
 
     ### Emissions due to cryognenic systems:
@@ -256,7 +262,7 @@ def Costing(Process_specs, Process_param, Comp_properties, Options): #process sp
 
     ### Specific Primary Energy Consumption for CO2 Avoided ###
     q_eq_ccs = Power_Consumption*3.6/Electrivity_Generation_Efficiency #primary consumption of the CCS plant (in MJ/yr)
-    e_eq_ccs = Equiv_Emission * 1000 #kgco2/yr
+    e_eq_ccs = (Primary_emission + Secondary_Emission) * 1000 #kgco2/yr
     e_eq_base = Process_param["Base_Plant_Primary_Emission"]+Process_param["Base_Plant_Secondary_Emission"] #base plant total emission in kgCO2/yr
     SPECCA = (q_eq_ccs)/(e_eq_base-(e_eq_ccs+Process_param["Base_Plant_Secondary_Emission"])) #MJ/kgCO2
     Economics = {
@@ -290,6 +296,7 @@ def Costing(Process_specs, Process_param, Comp_properties, Options): #process sp
         "Penalty_CO2_emission": Penalty_CO2_emission,  # Penalty for CO2 emissions under target
         "Power_Consumption": Power_Consumption,  # Power consumption in kWhe/yr
         "Cost_of_Capture": Cost_of_Capture,
+        "Cost_of_Avoidance": Cost_of_Avoidance,
         "SPECCA": SPECCA,
 
         }

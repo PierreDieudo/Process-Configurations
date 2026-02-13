@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
     Pierre
  '''
 
+print("-------- Modified Error detection and recycling ratio --------")
 
 #-----------------------------------------#
 #--------- User input parameters ---------#
@@ -33,17 +34,18 @@ Options = {
     "Export_Profiles": False,                   # Exports membrane profiles into a csv file
     "Permeance_From_Activation_Energy": True,    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
     "Extra_Recovery_Penalty": False,  # If true, adds a penalty to the objective function to encourage higher recoveries
-    "Recovery_Soft_Cap": (True, 0.9),  # (Activate limit, value) - If true, sets a soft limit on recovery: recovery above the soft cap will not decrease the primary emission cost further 
+    "Recovery_Soft_Cap": (False, 0.9),  # (Activate limit, value) - If true, sets a soft limit on recovery: recovery above the soft cap will not decrease the primary emission cost further 
+    "Purity_Hard_Cap": False
     }    
-print(f'Permeance from Activation Energy: {Options["Permeance_From_Activation_Energy"]}')
+print(Options)
 
 Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": 25+273.15,               # Kelvin
-    "Pressure_Feed": 6.90496515,                  # bar
+    "Temperature": -70+273.15,               # Kelvin
+    "Pressure_Feed": 10,                  # bar
     "Pressure_Permeate": 0.22,                 # bar
-    "Q_A_ratio": 10.7129534,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Q_A_ratio": 2,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [1000, 1000/200, 1000/80, 1000],        # GPU
     "Pressure_Drop": False,
     }
@@ -68,7 +70,7 @@ Process_param = {
 "Target_Recovery" : 0.9,    # Target recovery from Membrane 2 - for now not a hard limit, but a target to be achieved
 "Replacement_rate": 4,      # Replacement rate of the membranes (in yr)
 "Operating_hours": 8000,    # Operating hours per year
-"Lifetime": 20,             # Lifetime of the plant (in yr)
+"Lifetime": 25,             # Lifetime of the plant (in yr)
 "Base_Clinker_Production": 9.65e5, #(tn/yr) 
 "Base Plant Cost": 149.8 * 1e6,     # Total direct cost of plant (no CCS) in 2014 money
 "Base_Plant_Primary_Emission": (846)*9.65e5 ,# (kgCo2/tn_clk to kgCO2/yr) primary emissions of the base cement plant per year 
@@ -246,11 +248,11 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         # Calculate the cumulated error
         cumulated_error = sum(errors) - errors[-1 ]  # Exclude the last component (H2O) from the cumulated error
         print(f"{Membrane["Name"]} Cumulated Component Mass Balance Error: {cumulated_error:.2e}")    
-        if np.any(profile<-1e-5) or cumulated_error>(J*1e-5):
+        if np.any(profile<-1e-5) or cumulated_error>1e-3 :#or errors[-1]>1e-3:            
             print(f'Cumulated Component Mass Balance Error: {cumulated_error:.2e} with array {[f"{er:.2e}" for er in errors]}')
             profile_formatted = profile.map(lambda x: f'{x:.3f}' if pd.notnull(x) else x)        
             print(profile_formatted)
-            #raise ValueError("Mass Balance Error: Check Profile") #check for negative values in the profile
+            raise ValueError("Mass Balance Error: Check Profile") #check for negative values in the profile
                 
 
         #print(profile)

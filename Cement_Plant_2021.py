@@ -15,13 +15,11 @@ import matplotlib.pyplot as plt
     
     Pierre
  '''
-
-
 #-----------------------------------------#
 #--------- User input parameters ---------#
 #-----------------------------------------#
 
-filename = 'Cement_Ferrari2021_nov25.usc' #Unisim file name2
+filename = 'Cement_Ferrari2021_nov25.usc' #Unisim file name
 directory = 'C:\\Users\\s1854031\\OneDrive - University of Edinburgh\\Python\\Cement_Plant_2021\\' #Directory of the unisim file
 
 unisim_path = os.path.join(directory, filename)
@@ -29,9 +27,10 @@ unisim_path = os.path.join(directory, filename)
 Options = {
     "Plot_Profiles" : False,                     # Plots the profiles of membranes 1 and 2 once the process is solved
     "Export_Profiles": False,                   # Exports membrane profiles into a csv file
-    "Permeance_From_Activation_Energy": False,    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
+    "Permeance_From_Activation_Energy": True,    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
     "Extra_Recovery_Penalty": False,  # If true, adds a penalty to the objective function to encourage higher recoveries
-    "Recovery_Soft_Cap": (True, 0.9),  # (Activate limit, value) - If true, sets a soft limit on recovery: recovery above the soft cap will not decrease the primary emission cost further 
+    "Recovery_Soft_Cap": (False, 0.9),  # (Activate limit, value) - If true, sets a soft limit on recovery: recovery above the soft cap will not decrease the primary emission cost further 
+    "Purity_Hard_Cap": False
     }    
 print(Options)
 
@@ -40,10 +39,10 @@ Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',             # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 25+273.15,               # Kelvin
-    "Pressure_Feed": 3.10886657,                     # bar
+    "Pressure_Feed": 3.25558883,                     # bar
     "Pressure_Permeate": 0.22,              # bar
-    "Q_A_ratio": 2.28057585,                    # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
-    "Permeance": [1000,1000/0,1000/20,1000],        # GPU
+    "Q_A_ratio": 6.97853818,                    # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Permeance": [1000,1000/200,1000/80,1000],        # GPU
     "Pressure_Drop": False,
     }
 
@@ -51,10 +50,10 @@ Membrane_2 = {
     "Name": 'Membrane_2',
     "Solving_Method": 'CC_ODE',                   
     "Temperature": 25+273.15,                   
-    "Pressure_Feed": 1.30146368,                       
+    "Pressure_Feed": 1.30118756,                       
     "Pressure_Permeate": 0.22,                  
-    "Q_A_ratio":  1.56392423,                          
-    "Permeance": [1000,1000/50,1000/20,1000],  
+    "Q_A_ratio":  12.35238342,                          
+    "Permeance": [1000,1000/200,1000/80,1000],  
     "Pressure_Drop": False,
     }
 
@@ -64,7 +63,7 @@ Process_param = {
 "Target_Recovery" : 0.9,    # Target recovery from Membrane 2 - for now not a hard limit, but a target to be achieved
 "Replacement_rate": 4,      # Replacement rate of the membranes (in yr)
 "Operating_hours": 8000,    # Operating hours per year
-"Lifetime": 20,             # Lifetime of the plant (in yr)
+"Lifetime": 25,             # Lifetime of the plant (in yr)
 "Base_Clinker_Production": 9.65e5, #(tn/yr) 
 "Base Plant Cost": 149.8 * 1e6,     # Total direct cost of plant (no CCS) in 2014 money
 "Base_Plant_Primary_Emission": (846)*9.65e5 ,# (kgCo2/tn_clk to kgCO2/yr) primary emissions of the base cement plant per year 
@@ -229,11 +228,11 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         cumulated_error = sum(errors) - errors[-1] # Remove water because its relative error is large at low temperature (1e-4). Its absolute error however is negligible due to its very low concentration
         
         print(f"{Membrane["Name"]} Cumulated Component Mass Balance Error: {cumulated_error:.2e}")    
-        if np.any(profile<-1e-5) or cumulated_error>1e-5 or errors[-1]>1e-3:            
+        if np.any(profile<-1e-5) or cumulated_error>1e-3 or errors[-1]>1e-3:            
             print(f'Cumulated Component Mass Balance Error: {cumulated_error:.2e} with array {[f"{er:.2e}" for er in errors]}')
             profile_formatted = profile.map(lambda x: f'{x:.3f}' if pd.notnull(x) else x)        
             print(profile_formatted)
-            #raise ValueError("Mass Balance Error: Check Profile") #check for negative values in the profile
+            raise ValueError("Mass Balance Error: Check Profile") #check for negative values in the profile
                 
 
         #print(profile)
@@ -437,6 +436,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     from Costing import Costing
     Economics = Costing(Process_specs, Process_param, Component_properties, Options)
     print(Membrane_1)
+    print(f'Membrane_1 Area (m2): {Membrane_1["Area"]:.2f}')
     print(Membrane_2)
     print()
     print ("----- Final Results -----")
@@ -451,6 +451,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     ### used for DoE ###
     print()
     print(f'Purity: {Economics["Purity"]:.4f}')
+    print(f'Recovery: {Economics["Recovery"]:.4f}')
     print(f'TAC + Carbon Tax: {Economics["TAC_CC"] + Economics["Penalty_CO2_emission"]:.3e}')
 
     def plot_composition_profiles(profile,name):  

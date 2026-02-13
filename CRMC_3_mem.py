@@ -31,6 +31,7 @@ Options = {
     "Permeance_From_Activation_Energy": True,    # True will use the activation energies from the component_properties dictionary - False will use the permeances defined in the membranes dictionaries.
     "Extra_Recovery_Penalty": False,  # If true, adds a penalty to the objective function to encourage higher recoveries
     "Recovery_Soft_Cap": (True, 0.9),  # (Activate limit, value) - If true, sets a soft limit on recovery: recovery above the soft cap will not decrease the primary emission cost further 
+    "Purity_Hard_Cap": False,
     }    
 
 Membrane_1 = {
@@ -38,7 +39,7 @@ Membrane_1 = {
     "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 8.81731445+273.15,               # Kelvin
     "Pressure_Feed": 3.04339019,                  # bar
-    "Pressure_Permeate": 0.234,                 # bar
+    "Pressure_Permeate": 0.22,                 # bar
     "Q_A_ratio": 4.45004304,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [360, 13, 60, 360],        # GPU
     "Pressure_Drop": False,
@@ -49,7 +50,7 @@ Membrane_2 = {
     "Solving_Method": 'CC_ODE',                   
     "Temperature": 17.82055728+273.15,                   
     "Pressure_Feed": 3.18474511,                       
-    "Pressure_Permeate": 0.325,                  
+    "Pressure_Permeate": 0.22,                  
     "Q_A_ratio": 8.44163311,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
@@ -60,7 +61,7 @@ Membrane_3 = {
     "Solving_Method": 'CC_ODE',                   
     "Temperature": -39.7333792+273.15,                   
     "Pressure_Feed": 2.03163748,                       
-    "Pressure_Permeate": 0.325,                  
+    "Pressure_Permeate": 0.22,                  
     "Q_A_ratio": 2.05698377,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
@@ -71,7 +72,7 @@ Process_param = {
     "Target_Recovery" : 0.9,    # Target recovery from Membrane 2 - for now not a hard limit, but a target to be achieved
     "Replacement_rate": 4,      # Replacement rate of the membranes (in yr)
     "Operating_hours": 8000,    # Operating hours per year
-    "Lifetime": 20,             # Lifetime of the plant (in yr)
+    "Lifetime": 25,             # Lifetime of the plant (in yr)
     "Base_Clinker_Production": 9.65e5, #(tn/yr) 
     "Base Plant Cost": 149.8 * 1e6,     # Total direct cost of plant (no CCS) in 2014 money
     "Base_Plant_Primary_Emission": (846)*9.65e5 ,# (kgCo2/tn_clk to kgCO2/yr) primary emissions of the base cement plant per year 
