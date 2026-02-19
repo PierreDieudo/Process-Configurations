@@ -38,10 +38,10 @@ print(Options)
 Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',             # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": 25+273.15,               # Kelvin
-    "Pressure_Feed": 3.25558883,                     # bar
+    "Temperature": -18.74917+273.15,               # Kelvin
+    "Pressure_Feed": 4.10541,                     # bar
     "Pressure_Permeate": 0.22,              # bar
-    "Q_A_ratio": 6.97853818,                    # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Q_A_ratio": 2.74734,                    # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [1000,1000/200,1000/80,1000],        # GPU
     "Pressure_Drop": False,
     }
@@ -49,10 +49,10 @@ Membrane_1 = {
 Membrane_2 = {
     "Name": 'Membrane_2',
     "Solving_Method": 'CC_ODE',                   
-    "Temperature": 25+273.15,                   
-    "Pressure_Feed": 1.30118756,                       
+    "Temperature": -33.58007+273.15,                   
+    "Pressure_Feed": 1.33779,                       
     "Pressure_Permeate": 0.22,                  
-    "Q_A_ratio":  12.35238342,                          
+    "Q_A_ratio":  1.99193,                          
     "Permeance": [1000,1000/200,1000/80,1000],  
     "Pressure_Drop": False,
     }
@@ -68,7 +68,7 @@ Process_param = {
 "Base Plant Cost": 149.8 * 1e6,     # Total direct cost of plant (no CCS) in 2014 money
 "Base_Plant_Primary_Emission": (846)*9.65e5 ,# (kgCo2/tn_clk to kgCO2/yr) primary emissions of the base cement plant per year 
 "Base_Plant_Secondary_Emission": (34)*9.65e5 ,# (kgCo2/tn_clk to kgCO2/yr) primary emissions of the base cement plant per year 
-"Contingency": 0.3,         # or 0.4 (30% or 40% contingency for process design - based on TRL)
+"Contingency": 0.30,         # or 0.4 (30% or 40% contingency for process design - based on TRL)
 }
 
 Component_properties = {
@@ -436,8 +436,10 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     from Costing import Costing
     Economics = Costing(Process_specs, Process_param, Component_properties, Options)
     print(Membrane_1)
-    print(f'Membrane_1 Area (m2): {Membrane_1["Area"]:.2f}')
     print(Membrane_2)
+    print(f'Membrane_1 Area (m2): {Membrane_1["Area"]:.2f}')
+    print(f'Membrane_2 Area (m2): {Membrane_2["Area"]:.2f}')
+
     print()
     print ("----- Final Results -----")
 

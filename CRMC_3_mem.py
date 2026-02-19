@@ -37,10 +37,10 @@ Options = {
 Membrane_1 = {
     "Name": 'Membrane_1',
     "Solving_Method": 'CC_ODE',                 # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": 8.81731445+273.15,               # Kelvin
-    "Pressure_Feed": 3.04339019,                  # bar
+    "Temperature": 25+273.15,               # Kelvin
+    "Pressure_Feed": 2.41237,                  # bar
     "Pressure_Permeate": 0.22,                 # bar
-    "Q_A_ratio": 4.45004304,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
+    "Q_A_ratio": 4.21079,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [360, 13, 60, 360],        # GPU
     "Pressure_Drop": False,
     }
@@ -48,10 +48,10 @@ Membrane_1 = {
 Membrane_2 = {
     "Name": 'Membrane_2',
     "Solving_Method": 'CC_ODE',                   
-    "Temperature": 17.82055728+273.15,                   
-    "Pressure_Feed": 3.18474511,                       
+    "Temperature": 25+273.15,                   
+    "Pressure_Feed": 2.51991,                       
     "Pressure_Permeate": 0.22,                  
-    "Q_A_ratio": 8.44163311,                          
+    "Q_A_ratio": 9.72354,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
@@ -59,10 +59,10 @@ Membrane_2 = {
 Membrane_3 = {
     "Name": 'Membrane_3',
     "Solving_Method": 'CC_ODE',                   
-    "Temperature": -39.7333792+273.15,                   
-    "Pressure_Feed": 2.03163748,                       
+    "Temperature": 25+273.15,                   
+    "Pressure_Feed": 2.00481,                       
     "Pressure_Permeate": 0.22,                  
-    "Q_A_ratio": 2.05698377,                          
+    "Q_A_ratio": 12.54258,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
     }
@@ -494,6 +494,13 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
     from Costing import Costing
     Economics = Costing(Process_specs, Process_param, Component_properties, Options)
 
+    print()
+    # print(Membrane_1)
+    # print(Membrane_2)
+    # print(Membrane_3)
+    print(f'Membrane_1 Area (m2): {Membrane_1["Area"]:.2f}')
+    print(f'Membrane_2 Area (m2): {Membrane_2["Area"]:.2f}')
+    print(f'Membrane_3 Area (m2): {Membrane_3["Area"]:.2f}')
     print()
     print ("----- Final Results -----")
 
