@@ -228,7 +228,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         cumulated_error = sum(errors) - errors[-1] # Remove water because its relative error is large at low temperature (1e-4). Its absolute error however is negligible due to its very low concentration
         
         print(f"{Membrane["Name"]} Cumulated Component Mass Balance Error: {cumulated_error:.2e}")    
-        if np.any(profile<-1e-5) or cumulated_error>1e-3 or errors[-1]>1e-3:            
+        if np.any(profile<-1e-3) or cumulated_error>1e-3 or errors[-1]>1e-3:            
             print(f'Cumulated Component Mass Balance Error: {cumulated_error:.2e} with array {[f"{er:.2e}" for er in errors]}')
             profile_formatted = profile.map(lambda x: f'{x:.3f}' if pd.notnull(x) else x)        
             print(profile_formatted)

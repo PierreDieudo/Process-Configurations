@@ -31,6 +31,7 @@
     <Compile Include="Hub.py" />
     <Compile Include="Cement_Plant_2021.py" />
     <Compile Include="CRMC_3_mem.py" />
+    <Compile Include="Materials.py" />
     <Compile Include="Single_Membrane.py" />
   </ItemGroup>
   <ItemGroup>
