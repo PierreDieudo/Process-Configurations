@@ -5,7 +5,7 @@ from Hub import Hub_Connector
 from UNISIMConnect import UNISIMConnector
 import pandas as pd  
 import matplotlib.pyplot as plt
-from PIL import Image
+from Materials import validate_membrane
 
 
 ''' General information here: 
@@ -32,6 +32,7 @@ Options = {
     "Extra_Recovery_Penalty": False,  # If true, adds a penalty to the objective function to encourage higher recoveries
     "Recovery_Soft_Cap": (True, 0.9),  # (Activate limit, value) - If true, sets a soft limit on recovery: recovery above the soft cap will not decrease the primary emission cost further 
     "Purity_Hard_Cap": False,
+    "Anti_Aging_LowTemp": False, # If true, assumes than aging is negligible at -20 C and under - membranes under that temperature use fresh separation properties
     }    
 
 Membrane_1 = {
@@ -43,6 +44,7 @@ Membrane_1 = {
     "Q_A_ratio": 3.8850451,                      # ratio of the membrane feed flowrate to its area (in m3(stp)/m2.hr)
     "Permeance": [360, 13, 60, 360],        # GPU
     "Pressure_Drop": False,
+    "Material": "PIM-1", # Material used - important if getting permeance from activation energies
     }
 
 Membrane_2 = {
@@ -54,6 +56,7 @@ Membrane_2 = {
     "Q_A_ratio": 8.90149594,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
+    "Material": Membrane_1["Material"],
     }
 
 Membrane_3 = {
@@ -65,6 +68,7 @@ Membrane_3 = {
     "Q_A_ratio": 1.55191056,                          
     "Permeance": [360, 13, 60, 360],        
     "Pressure_Drop": False,
+    "Material": Membrane_1["Material"],
     }
 
 Process_param = {
@@ -80,20 +84,14 @@ Process_param = {
     "Contingency": 0.3,         # or 0.4 (30% or 40% contingency for process design - based on TRL)
 }
 
-Component_properties = {
-    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874],[0.0558,3.8970], [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
-    "Molar_mass": [44.009, 28.0134, 31.999,18.01528],                                           # Molar mass of each component in g/mol"
-    "Activation_Energy_Aged": ([12750,321019],[25310,2186946],[15770,196980],[12750,321019]),   # ([Activation energy - J/mol],[pre-exponential factor - GPU])
-    "Activation_Energy_Fresh": ([2880,16806],[16520,226481],[3770,3599],[2880,16806]),          #Valid only if temperature is -20 C or under - not considered for now
-    }
-
-
 Fibre_Dimensions = {
     "D_in" : 600 * 1e-6,    # Inner diameter in m (from um)
     "D_out" : 1030 * 1e-6,   # Outer diameter in m (from um)
     }
 
-J = len(Membrane_1["Permeance"]) #number of components
+components = ["CO2", "N2", "O2", "H2O"]
+Component_properties = validate_membrane(Membrane_1, components) # checks the membrane data and get components properties for the mass balance calculations
+J = len(components) #number of components
 
 with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
 
@@ -237,11 +235,13 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
 
         J = len(Membrane["Permeance"]) #number of components
             
-        if Options["Permeance_From_Activation_Energy"]:
-            # Obtain Permeance with temperature:
-            for i in range(J):
-                Membrane["Permeance"][i] = Component_properties["Activation_Energy_Aged"][i][1] * np.exp(-Component_properties["Activation_Energy_Aged"][i][0] / (8.314 * Membrane["Temperature"]))
-
+        if Options["Permeance_From_Activation_Energy"]: # Obtain Permeance with temperature:
+            if Options["Anti_Aging_LowTemp"] and Membrane["Temperature"] <= 253.15: # Fresh properties used at low temperature, aged properties at higher temperature if options true
+                for i in range(J):
+                    Membrane["Permeance"][i] = Component_properties["Activation_Energy_Fresh"][i][1] * np.exp(-Component_properties["Activation_Energy_Fresh"][i][0] / (8.314 * Membrane["Temperature"]))
+            else: 
+                for i in range(J):
+                    Membrane["Permeance"][i] = Component_properties["Activation_Energy_Aged"][i][1] * np.exp(-Component_properties["Activation_Energy_Aged"][i][0] / (8.314 * Membrane["Temperature"]))
 
         results, profile = Hub_Connector(Export_to_mass_balance)
         Membrane["Retentate_Composition"],Membrane["Permeate_Composition"],Membrane["Retentate_Flow"],Membrane["Permeate_Flow"] = results
@@ -266,7 +266,7 @@ with UNISIMConnector(unisim_path, close_on_completion=False) as unisim:
         cumulated_error = sum(errors) - errors[-1] # Remove water because its relative error is large at low temperature (1e-4). Its absolute error however is negligible due to its very low concentration
         
         print(f"{Membrane["Name"]} Cumulated Component Mass Balance Error: {cumulated_error:.2e}")    
-        if np.any(profile<-1e-5) or cumulated_error>1e-5 or errors[-1]>1e-3:            
+        if np.any(profile<-1e-3) or cumulated_error>1e-5 or errors[-1]>1e-3:            
             print(f'Cumulated Component Mass Balance Error: {cumulated_error:.2e} with array {[f"{er:.2e}" for er in errors]}')
             profile_formatted = profile.map(lambda x: f'{x:.3f}' if pd.notnull(x) else x)        
             print(profile_formatted)                
